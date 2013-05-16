@@ -9,8 +9,10 @@
 #ifndef INTERMEDIATE_H
 #define INTERMEDIATE_H
 
+//#import "ast.h"
+
 /* opcodes for the quads */ 
-typedef enum {assn, add, sub, mult, div} opcode_type; 
+typedef enum {assn, add, sub, mult, divide} opcode_type; 
 
 /* Structure for a quad. Knows its opcode and up to 3 addresses - these are strings
    which can then be looked up in the symbol table. It also knows its next and
@@ -26,15 +28,17 @@ struct quad_struct {
 }; 
 
 typedef struct quad_list_struct *quad_list; 
-struct quad_list {
+struct quad_list_struct {
   quad first; 
-}
+}; 
 
 /* Create a quad with a given opcode and return a pointer to that quad. */
 quad create_quad(opcode_type opcode); 
 void destroy_quad(quad q); 
 
 /* Create a quad_list and return a pointer to it */ 
-quad_list create_quad_list(); 
+//quad_list create_quad_list(); 
+// void generate_traverse(ast_node node); 
+
 
 #endif

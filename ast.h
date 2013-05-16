@@ -12,6 +12,7 @@
 #ifndef AST_H_
 #define AST_H_
 
+#include "intermediate.h" 
 
 /* You should fill in the various node types.  The following are given
    to you to start with.  You may add or remove node types as you
@@ -38,7 +39,7 @@ struct ast_node_struct {
   ast_node parent; 
   char * type; 
   int isVar; // for IDs, so you can tell if it's a function or variable 
-  //quad_list code; 
+  quad_list code; 
   char * location; // name of the location of the value - for code generation
   union {
     char * string;		/* for ID */
@@ -54,5 +55,9 @@ ast_node create_ast_node(ast_node_type node_type);
 /* Print the contents of a subtree of an abstract syntax tree, given
    the root of the subtree and the depth of the subtree root. */
 void print_ast(ast_node root, int depth);
+
+/* MAYBE THIS SHOUDLN'T GO HERE? */
+void generate_traverse(ast_node node); 
+quad_list create_quad_list(); 
 
 #endif

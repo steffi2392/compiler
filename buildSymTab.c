@@ -30,6 +30,8 @@ table symbol_table;
       print_ast(root, 0);
       traverse(root, symtab); 
       print_symboltable(symtab); 
+      printf("\n\n"); 
+      generate_traverse(root); 
     }
 
     int level; 

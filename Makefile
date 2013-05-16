@@ -2,8 +2,8 @@ CC = gcc
 CFLAGS = -g
 BISONFL = -d -v
 
-tree: lex.yy.o tree.tab.o ast.o tree_main.o table.o typecheck.o symtab.o
-	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o ast.o tree_main.o table.o typecheck.o symtab.o
+tree: lex.yy.o tree.tab.o table.o typecheck.o symtab.o ast.o intermediate.o tree_main.o
+	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o table.o typecheck.o symtab.o ast.o intermediate.o  tree_main.o
 
 lex.yy.o: lex.yy.c
 	$(CC) -c $(CFLAGS) $<
@@ -33,9 +33,12 @@ symtab.o: symtab.c
 typecheck.o: typecheck.c typecheck.h symtab.h 
 	$(CC) -c $(CFLAGS) $<
 
+intermediate.o: intermediate.c intermediate.h
+	$(CC) -c $(CFLAGS) $<
+
 parser:
 	make tree
 
 clean: 
 	rm -f tree lex.yy.o tree.tab.o tree_main.o ast_o tree.tab.h tree.tab.c\
-	lex.yy.c *.o *~ tree.output
+	lex.yy.c *.o *~ tree.output vgcore.* core*
