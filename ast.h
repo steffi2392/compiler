@@ -12,6 +12,7 @@
 #ifndef AST_H_
 #define AST_H_
 
+
 /* You should fill in the various node types.  The following are given
    to you to start with.  You may add or remove node types as you
    wish. */
@@ -37,6 +38,8 @@ struct ast_node_struct {
   ast_node parent; 
   char * type; 
   int isVar; // for IDs, so you can tell if it's a function or variable 
+  //quad_list code; 
+  char * location; // name of the location of the value - for code generation
   union {
     char * string;		/* for ID */
     int int_value;		/* for INT_LITERAL */

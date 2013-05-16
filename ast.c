@@ -73,6 +73,7 @@ ast_node create_ast_node(ast_node_type node_type) {
   new_node->node_type = node_type;
   new_node->left_child = new_node->right_sibling = NULL;
   new_node->isVar = 1; 
+  //  new_node->code = create_quad_list(); 
   return new_node;
 }
 
