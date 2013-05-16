@@ -80,7 +80,7 @@ static void implement_node(ast_node node){
     // get location to being assigned to                                                                                     
     char * target = NULL;
     if (node->left_child != NULL && node->left_child->node_type == IDENT){
-      target = strdup(node->left_child->value.string); // DO I NEED TO DUPLICATE THE STRING?                                       
+      target = strdup(node->left_child->value.string); // DO I NEED TO DUPLICATE THE STRING?  
     }
     else if (node->left_child != NULL){
       target = strdup(node->left_child->location);
@@ -91,6 +91,12 @@ static void implement_node(ast_node node){
     ast_node right_child = node->left_child->right_sibling; 
     if (right_child != NULL && right_child->node_type == IDENT){
       value =strdup(right_child->value.string);
+    }
+    else if (right_child != NULL && right_child->node_type == INT_LITERAL){
+      value = right_child->value.int_value; 
+    }
+    else if (right_child != NULL && right_child->node_type == DOUBLE_LITERAL){
+      value = right_child->value.double_value; 
     }
     else if (right_child != NULL){
       value =strdup(right_child->location);
@@ -137,6 +143,12 @@ static void implement_node(ast_node node){
     if (node->left_child != NULL && node->left_child->node_type == IDENT){
       left = strdup(node->left_child->value.string); 
     }
+    else if (node->left_child != NULL && node->left_child->node_type == INT_LITERAL){
+      left = node->left_child->value.int_value; 
+    }
+    else if (node->left_child != NULL && node->left_child->node_type == DOUBLE_LITERAL){
+      left = node->left_child->value.double_value; 
+    }
     else if (node->left_child != NULL){
       left = strdup(node->left_child->location); 
     }
@@ -146,6 +158,12 @@ static void implement_node(ast_node node){
     char * right = NULL; 
     if (right_child != NULL && right_child->node_type == IDENT){
       right = strdup(right_child->value.string); 
+    }
+    else if (right_child != NULL && right_child->node_type == INT_LITERAL){
+      right = right_child->node_type->value.int_value; 
+    }
+    else if (right_child != NULL && right_child->node_type == DOUBLE_LITERAL){
+      right = right_child->node_type->value.double_value; 
     }
     else if (right_child != NULL){
       right = strdup(right_child->location); 
