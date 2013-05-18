@@ -24,8 +24,9 @@ tree.tab.c: tree.y
 	bison -v $(BISONFL) $<
 
 #tree_main.o: tree_main.c
-tree_main.o: buildSymTab.c
-	$(CC) -c $(CFLAGS) -o tree_main.o buildSymTab.c
+#tree_main.o: buildSymTab.c
+tree_main.o: generate_code.c
+	$(CC) -c $(CFLAGS) -o tree_main.o generate_code.c
 
 symtab.o: symtab.c
 	$(CC) -c $(CFLAGS) $<

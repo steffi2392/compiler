@@ -15,6 +15,8 @@ static char * new_address();
 static void add_quad_list(ast_node node, quad_list quads); 
 static void add_quad(ast_node node, quad q); 
 
+#define MAX_LEN 201
+
 int num_addresses = 0; 
 
 /* create a quad with a given opcode and return a pointer 
@@ -25,8 +27,8 @@ quad create_quad(opcode_type opcode){
   new_quad->address1 = NULL; 
   new_quad->address2 = NULL; 
   new_quad->address3 = NULL; 
-  new_quad->next = NULL; 
-  new_quad->prev = NULL; 
+  new_quad->next = new_quad; 
+  new_quad->prev = new_quad; 
   return new_quad; 
 }
 
@@ -93,10 +95,16 @@ static void implement_node(ast_node node){
       value =strdup(right_child->value.string);
     }
     else if (right_child != NULL && right_child->node_type == INT_LITERAL){
-      value = right_child->value.int_value; 
+      char buffer[MAX_LEN];
+      int int_lit = right_child->value.int_value; 
+      snprintf(buffer, MAX_LEN, "%d", int_lit); 
+      value = strdup(buffer); 
     }
     else if (right_child != NULL && right_child->node_type == DOUBLE_LITERAL){
-      value = right_child->value.double_value; 
+      char buffer[MAX_LEN]; 
+      double double_lit = right_child->value.double_value; 
+      snprintf(buffer, MAX_LEN, "%f", double_lit); 
+      value = strdup(buffer); 
     }
     else if (right_child != NULL){
       value =strdup(right_child->location);
@@ -144,10 +152,16 @@ static void implement_node(ast_node node){
       left = strdup(node->left_child->value.string); 
     }
     else if (node->left_child != NULL && node->left_child->node_type == INT_LITERAL){
-      left = node->left_child->value.int_value; 
+      char buffer[MAX_LEN]; 
+      int int_lit  = node->left_child->value.int_value; 
+      snprintf(buffer, MAX_LEN, "%d", int_lit); 
+      left = strdup(buffer); 
     }
     else if (node->left_child != NULL && node->left_child->node_type == DOUBLE_LITERAL){
-      left = node->left_child->value.double_value; 
+      char buffer[MAX_LEN];
+      double double_lit = node->left_child->value.double_value;
+      snprintf(buffer, MAX_LEN,"%f", double_lit);
+      left = strdup(buffer);
     }
     else if (node->left_child != NULL){
       left = strdup(node->left_child->location); 
@@ -160,10 +174,16 @@ static void implement_node(ast_node node){
       right = strdup(right_child->value.string); 
     }
     else if (right_child != NULL && right_child->node_type == INT_LITERAL){
-      right = right_child->node_type->value.int_value; 
+      char buffer[MAX_LEN]; 
+      int int_lit = right_child->value.int_value; 
+      snprintf(buffer, MAX_LEN, "%d", int_lit); 
+      right = strdup(buffer); 
     }
     else if (right_child != NULL && right_child->node_type == DOUBLE_LITERAL){
-      right = right_child->node_type->value.double_value; 
+      char buffer[MAX_LEN];
+      double double_lit = right_child->value.double_value;
+      snprintf(buffer, MAX_LEN,"%f", double_lit);
+      right = strdup(buffer);
     }
     else if (right_child != NULL){
       right = strdup(right_child->location); 
@@ -197,10 +217,29 @@ static char * new_address(){
 }
 
 static void add_quad_list(ast_node node, quad_list quads){
-  if (node->code == NULL){
-    node->code->first = quads->first; 
+  printf("inside add_quad_list\n"); 
+  if (node->code->first == NULL && quads != NULL ){
+    printf("inside if \n"); 
+    node->code = quads; 
+    //    node->code->first = quads->first;
   }
-  else {
+  else if (quads != NULL && quads->first != NULL) {
+    printf("inside else \n"); 
+    // testing
+    if (node->code == NULL)
+      printf("node->code\n"); 
+    else if (node->code->first == NULL)
+      printf("node->code->first\n"); 
+    else if (node->code->first->prev == NULL)
+      printf("node->code->first->prev\n"); 
+    else if (node->code->first->prev->next == NULL)
+      printf("node->code->first->prev->next\n"); 
+
+    if (quads->first == NULL)
+      printf("quads->first\n"); 
+    else if (quads->first->prev == NULL)
+      printf("quads->first->prev\n"); 
+
     quad code_old_last = node->code->first->prev; 
     
     node->code->first->prev->next = quads->first;
@@ -211,14 +250,32 @@ static void add_quad_list(ast_node node, quad_list quads){
 }
 
 static void add_quad(ast_node node, quad q){
-  if (node->code == NULL){
+  printf("add_quad\n"); 
+  if (node->code->first == NULL && q != NULL){
+    printf("inside if\n"); 
     node->code->first = q; 
     q->next = q; 
     q->prev = q; 
   }
-  else{
+  else if (q != NULL) {
+    printf("inside else\n"); 
+    printf("node->code->first: (%d, %s, %s, %s)\n", node->code->first->opcode, node->code->first->address1, node->code->first->address2, node->code->first->address3); 
+    printf("quad: (%d, %s, %s, %s)\n", q->opcode, q->address1, q->address2, q->address3); 
     q->prev = node->code->first->prev; 
     q->next = node->code->first; 
+    node->code->first->prev->next = q; 
     node->code->first->prev = q; 
+  }
+}
+
+void print_code(quad_list code){
+  if (code->first != NULL)
+    printf("(%d, %s, %s, %s)\n", code->first->opcode, code->first->address1, code->first->address2, code->first->address3); 
+  else
+    printf("code->first is NULL inside print_code\n"); 
+
+  quad curr; 
+  for (curr = code->first->next; curr != code->first; curr = curr->next){
+    printf("(%d, %s, %s, %s)\n", curr->opcode, curr->address1, curr->address2, curr->address3); 
   }
 }

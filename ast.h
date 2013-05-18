@@ -59,5 +59,6 @@ void print_ast(ast_node root, int depth);
 /* MAYBE THIS SHOUDLN'T GO HERE? */
 void generate_traverse(ast_node node); 
 quad_list create_quad_list(); 
+void print_code(quad_list code); 
 
 #endif
