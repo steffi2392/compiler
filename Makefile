@@ -5,6 +5,9 @@ BISONFL = -d -v
 tree: lex.yy.o tree.tab.o table.o typecheck.o symtab.o ast.o intermediate.o tree_main.o
 	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o table.o typecheck.o symtab.o ast.o intermediate.o  tree_main.o
 
+generate: lex.yy.o tree.tab.o table.o typecheck.o symtab.o ast.o intermediate.o generate.o
+	$(CC) -o $a $(CFLAGS) lex.yy.o tree.tab.o table. typecheck.o symtab.o ast.o intermediate.o generate.o
+
 lex.yy.o: lex.yy.c
 	$(CC) -c $(CFLAGS) $<
 
@@ -23,10 +26,13 @@ tree.tab.h: tree.y
 tree.tab.c: tree.y
 	bison -v $(BISONFL) $<
 
-#tree_main.o: tree_main.c
+generate.o: generate_code.c
+	$(CC) -c $(CFLAGS) -o generate.o generate_code.c
+
+tree_main.o: tree_main.c
 #tree_main.o: buildSymTab.c
-tree_main.o: generate_code.c
-	$(CC) -c $(CFLAGS) -o tree_main.o generate_code.c
+#tree_main.o: generate_code.c
+	$(CC) -c $(CFLAGS) -o tree_main.o tree_main.c
 
 symtab.o: symtab.c
 	$(CC) -c $(CFLAGS) $<
