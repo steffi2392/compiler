@@ -6,7 +6,7 @@ tree: lex.yy.o tree.tab.o table.o typecheck.o symtab.o ast.o intermediate.o tree
 	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o table.o typecheck.o symtab.o ast.o intermediate.o  tree_main.o
 
 generate: lex.yy.o tree.tab.o table.o typecheck.o symtab.o ast.o intermediate.o generate.o
-	$(CC) -o $a $(CFLAGS) lex.yy.o tree.tab.o table. typecheck.o symtab.o ast.o intermediate.o generate.o
+	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o table.c typecheck.o symtab.o ast.o intermediate.o generate.o
 
 lex.yy.o: lex.yy.c
 	$(CC) -c $(CFLAGS) $<
@@ -48,4 +48,4 @@ parser:
 
 clean: 
 	rm -f tree lex.yy.o tree.tab.o tree_main.o ast_o tree.tab.h tree.tab.c\
-	lex.yy.c *.o *~ tree.output vgcore.* core*
+	lex.yy.c *.o *~ tree.output vgcore.* core* generate

@@ -14,6 +14,14 @@ static void implement_node(ast_node node);
 static char * new_address(); 
 static void add_quad_list(ast_node node, quad_list quads); 
 static void add_quad(ast_node node, quad q); 
+static char * process_left(ast_node node); 
+static char * process_right(ast_node node); 
+static void build_code(ast_node node, quad new_quad, char * address1, char * address2, char * address3); 
+static void process_assign(ast_node node); 
+static void process_math(ast_node node); 
+static void process_negate(ast_node node); 
+static void process_inc(ast_node node, char * inc); 
+static void error(); 
 
 #define MAX_LEN 201
 
@@ -69,102 +77,26 @@ static void implement_node(ast_node node){
 
   // generate code for assignment operator
   if (node !=NULL && node->node_type == OP_ASSIGN){
-    quad new_quad = create_quad(assn);
-    // get location to being assigned to                                                                                     
-    char * target = NULL;
-    if (node->left_child != NULL && node->left_child->node_type == IDENT){
-      target = strdup(node->left_child->value.string); // DO I NEED TO DUPLICATE THE STRING?  
-    }
-    else if (node->left_child != NULL){
-      target = strdup(node->left_child->location);
-    }
-
-    // get location of value                                                                                                 
-    char * value = NULL;
-    ast_node right_child = node->left_child->right_sibling; 
-    if (right_child != NULL && right_child->node_type == IDENT){
-      value =strdup(right_child->value.string);
-    }
-    else if (right_child != NULL && right_child->node_type == INT_LITERAL){
-      char buffer[MAX_LEN];
-      int int_lit = right_child->value.int_value; 
-      snprintf(buffer, MAX_LEN, "%d", int_lit); 
-      value = strdup(buffer); 
-    }
-    else if (right_child != NULL && right_child->node_type == DOUBLE_LITERAL){
-      char buffer[MAX_LEN]; 
-      double double_lit = right_child->value.double_value; 
-      snprintf(buffer, MAX_LEN, "%f", double_lit); 
-      value = strdup(buffer); 
-    }
-    else if (right_child != NULL){
-      value =strdup(right_child->location);
-    }
-
-    if (target != NULL && value != NULL){
-      new_quad->address1 = target; 
-      new_quad->address2 = value; 
-      node->location = strdup(target); 
-
-      // get the code from the children and then add the new line
-      add_quad_list(node, node->left_child->code); 
-      add_quad_list(node, node->left_child->right_sibling->code); 
-      add_quad(node, new_quad); 
-    }
-    else{
-      destroy_quad(new_quad); 
-    }
+    process_assign(node); 
   }
 
-  // NOT FINISHED
+  // generate code for negate operator
   else if (node != NULL && (node->node_type == OP_NEG)) {
-    
+    process_negate(node); 
   }
 
-  // generate code for plus, minus, multiply, or divide operator
-  else if (node != NULL && (node->node_type == OP_PLUS || node->node_type == OP_MINUS || node->node_type == OP_TIMES
-			    || node->node_type == OP_DIVIDE)){
-    
-    quad new_quad = NULL; 
-    if (node->node_type == OP_PLUS){
-      new_quad = create_quad(add);
-    } 
-    else if (node->node_type == OP_MINUS){
-      new_quad = create_quad(sub); 
-    }
-    else if (node->node_type == OP_TIMES){
-      new_quad = create_quad(mult); 
-    }
-    else if (node->node_type == OP_DIVIDE){
-      new_quad = create_quad(divide); 
-    }
+  // generate code for  +, -, *, /, %, =, !=, <, <=, >, >=
+  else if (node != NULL && (node->node_type > 0 && node->node_type <= 16 )){
+    process_math(node); 
+  }
 
-    // location being assigned to is new!
-    char * target = new_address();
+  else if (node != NULL && node->node_type == OP_INC){
+    process_inc(node, "1"); 
+  }
 
-    // get left argument
-    char * left = process_left(node); 
-
-    // get right argument
-    char * right = process_right(node); 
-
-    if (new_quad != NULL && target != NULL && left != NULL && right != NULL){
-      new_quad->address1 = target; 
-      new_quad->address2 = left; 
-      new_quad->address3 = right; 
-
-      node->location = strdup(target); 
-
-      // get the code from the children and then add the new line                                                                       
-      add_quad_list(node, node->left_child->code);
-      add_quad_list(node, node->left_child->right_sibling->code);
-      add_quad(node, new_quad);
-
-    }
-    else {
-      destroy_quad(new_quad); 
-    }
-  } 
+  else if (node != NULL && node->node_type == OP_DEC){
+    process_inc(node, "-1"); 
+  }
 }
 
 static char * new_address(){
@@ -288,46 +220,142 @@ static char * process_right(ast_node node){
 }
 
 // handles OP_PLUS, OP_MINUS, OP_TIMES, and OP_DIVIDE
-static quad process_math(ast_node node){
-  quad new_quad = NULL;
+static void process_math(ast_node node){
+  quad new_quad = NULL;   
   if (node->node_type == OP_PLUS){
-    new_quad = create_quad(add);
-  }
-  else if (node->node_type == OP_MINUS){
-    new_quad = create_quad(sub);
-  }
-  else if (node->node_type == OP_TIMES){
-    new_quad = create_quad(mult);
-  }
+    new_quad = create_quad(add);       
+  }                         
+  else if (node->node_type == OP_MINUS){  
+    new_quad = create_quad(sub);     
+  }                     
+  else if (node->node_type == OP_TIMES){  
+    new_quad = create_quad(mult);      
+  }                       
   else if (node->node_type == OP_DIVIDE){
-    new_quad = create_quad(divide);
+    new_quad = create_quad(divide);  
+  }         
+  else if (node->node_type == OP_MOD){
+    new_quad = create_quad(mod); 
   }
-
-  // location being assigned to is new!                                                                                                
+  else if (node->node_type == OP_EQUALS){
+    new_quad = create_quad(eq); 
+  }
+  else if (node->node_type == OP_NEQUALS){
+    new_quad = create_quad(neq); 
+  }
+  else if (node->node_type == OP_LT){
+    new_quad = create_quad(lt); 
+  }
+  else if (node->node_type == OP_LEQ){
+    new_quad = create_quad(leq); 
+  }
+  else if (node->node_type == OP_GT){
+    new_quad = create_quad(gt); 
+  }
+  else if (node->node_type == OP_GEQ){
+    new_quad = create_quad(geq); 
+  }
+  else if (node->node_type == OP_AND){
+    new_quad = create_quad(and); 
+  }
+  else if (node->node_type == OP_OR){
+    new_quad = create_quad(or); 
+  }
+  else if (node->node_type == OP_NOT){
+    new_quad = create_quad(not); 
+  }
+   
+  // location being assigned to is new!   
   char * target = new_address();
+       
+  // get left argument     
+  char * left = process_left(node);  
+                 
+  // get right argument         
+  char * right = process_right(node);       
 
-  // get left argument                                                                                                                 
-  char * left = process_left(node);
+  if (new_quad != NULL && target != NULL && left != NULL && right != NULL){                
+    build_code(node, new_quad, target, left, right);  
+  }            
+  else {  
+    destroy_quad(new_quad);        
+    error();                 
+  }          
+}
 
-  // get right argument                                                                                                                
-  char * right = process_right(node);
+static void build_code(ast_node node, quad new_quad, char * address1, char * address2, char * address3){
+  new_quad->address1 = address1;
+  new_quad->address2 = address2; 
+  new_quad->address3 = address3; 
 
-  if (new_quad != NULL && target != NULL && left != NULL && right != NULL){
-    new_quad->address1 = target;
-    new_quad->address2 = left;
-    new_quad->address3 = right;
+  node->location = strdup(address1); 
 
-    node->location = strdup(target);
-
-    // get the code from the children and then add the new line                                                                       
-    add_quad_list(node, node->left_child->code);
-    add_quad_list(node, node->left_child->right_sibling->code);
-    add_quad(node, new_quad);
-
-    return new_quad; 
+  // get the code from the children (that exist) and then add the new line
+  if (node->left_child != NULL){
+    add_quad_list(node, node->left_child->code); 
   }
-  else {
+  if (node->left_child->right_sibling != NULL){
+    add_quad_list(node, node->left_child->right_sibling->code); 
+  }
+
+  add_quad(node, new_quad); 
+}
+
+static void process_assign(ast_node node){
+  quad new_quad = create_quad(assn);
+  // get location to being assigned
+  char * target = NULL;
+  if (node->left_child != NULL && node->left_child->node_type == IDENT){
+    target = strdup(node->left_child->value.string); // DO I NEED TO DUPLICATE THE STRING? 
+  }
+  else if (node->left_child != NULL){
+    target = strdup(node->left_child->location);
+  }
+
+  // get location of value               
+  char * value = process_right(node);
+
+  if (target != NULL && value != NULL){
+    build_code(node, new_quad, target, value, NULL);
+  }
+  else{
     destroy_quad(new_quad);
-    return NULL; 
+    error();
   }
+}
+
+static void process_negate(ast_node node){
+  quad new_quad = create_quad(mult); 
+  char * target = new_address(); 
+
+  char * value = process_left(node);
+  char * multby = strdup("-1"); 
+  
+  if (value != NULL){
+    build_code(node, new_quad, target, value, multby); 
+  }
+  else{
+    destroy_quad(new_quad); 
+    error(); 
+  }
+}
+
+// handle increments and decrements
+static void process_inc(ast_node node, char * inc){
+  quad new_quad = create_quad(add); 
+  char * target = process_left(node); 
+  char *value = target; 
+  char *amount = strdup(inc); 
+
+  if (value != NULL){
+    build_code(node, new_quad, target, value, amount); 
+  }
+  else{
+    destroy_quad(new_quad); 
+    error(); 
+  }
+}
+
+static void error(){
+  printf("Error found during generation of intermediate code.\n"); 
 }

@@ -18,6 +18,8 @@ int main(){
   ast_node minus = create_ast_node(OP_MINUS); 
   ast_node assign = create_ast_node(OP_ASSIGN); 
   ast_node plus = create_ast_node(OP_PLUS);
+  ast_node negate = create_ast_node(OP_NEG);
+  ast_node inc = create_ast_node(OP_INC); 
  
   ast_node x = create_ast_node(IDENT); 
   x->value.string = "x"; 
@@ -33,12 +35,15 @@ int main(){
 
   root->left_child = minus; 
   minus->left_child = assign; 
-  minus->left_child->right_sibling = z; 
+  minus->left_child->right_sibling = negate; 
+
+  negate->left_child = z; 
 
   assign->left_child = x; 
   assign->left_child->right_sibling = plus; 
 
-  plus->left_child = y; 
+  plus->left_child = inc; 
+  inc->left_child = y; 
   plus->left_child->right_sibling = three; 
 
   // now actually do stuff with it
