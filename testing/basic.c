@@ -9,4 +9,8 @@ int f(){
 
 int main(){
   double x = f();
+  int i; 
+  for (i =0; i < 5; i = i+1){
+    x = 1; 
+  }
 }

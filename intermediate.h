@@ -12,7 +12,8 @@
 //#import "ast.h"
 
 /* opcodes for the quads */ 
-typedef enum {assn, add, sub, mult, divide, mod, eq, neq, lt, leq, gt, geq, and, or, not} opcode_type; 
+typedef enum {assn, add, sub, mult, divide, mod, eq, neq, lt, leq, gt, 
+	      geq, and, or, not, enter, leave, ifFalse, jumpTo} opcode_type; 
 
 /* Structure for a quad. Knows its opcode and up to 3 addresses - these are strings
    which can then be looked up in the symbol table. It also knows its next and
@@ -23,8 +24,10 @@ struct quad_struct {
   char * address1; 
   char * address2; 
   char * address3; 
+  
   quad next; 
   quad prev; 
+  int num; 
 }; 
 
 typedef struct quad_list_struct *quad_list; 

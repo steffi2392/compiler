@@ -11,21 +11,28 @@
 /* Prototypes */ 
 //static void generate_traverse(ast_node node, quad_list inter_code); 
 static void implement_node(ast_node node); 
-static char * new_address(); 
+static char * new_address();
+static int get_num_addresses();  
 static void add_quad_list(ast_node node, quad_list quads); 
 static void add_quad(ast_node node, quad q); 
 static char * process_left(ast_node node); 
 static char * process_right(ast_node node); 
 static void build_code(ast_node node, quad new_quad, char * address1, char * address2, char * address3); 
+static void process_root(ast_node node); 
 static void process_assign(ast_node node); 
 static void process_math(ast_node node); 
 static void process_negate(ast_node node); 
 static void process_inc(ast_node node, char * inc); 
+static void process_cmpd(ast_node node); 
+static void process_func(ast_node node); 
+static void process_if(ast_node node); 
+static void process_ifelse(ast_node node); 
 static void error(); 
 
 #define MAX_LEN 201
 
 int num_addresses = 0; 
+int num_quads = 0; 
 
 /* create a quad with a given opcode and return a pointer 
    to it.  Initializes all addresses to NULL */
@@ -36,8 +43,15 @@ quad create_quad(opcode_type opcode){
   new_quad->address2 = NULL; 
   new_quad->address3 = NULL; 
   new_quad->next = new_quad; 
-  new_quad->prev = new_quad; 
+  new_quad->prev = new_quad;
+  new_quad->num = num_quads; 
+
+  num_quads++; 
   return new_quad; 
+}
+
+void reset_num_quads(){
+  num_quads = 0; 
 }
 
 /* Create a quad_list. first is initially NULL. */ 
@@ -74,28 +88,46 @@ void generate_traverse(ast_node node){
 
 // generates code to implement node's action
 static void implement_node(ast_node node){
+  if (node != NULL){
+    if (node->node_type == ROOT){
+      process_root(node); 
+    }
+    // generate code for assignment operator
+    else if (node->node_type == OP_ASSIGN){
+      process_assign(node); 
+    }
 
-  // generate code for assignment operator
-  if (node !=NULL && node->node_type == OP_ASSIGN){
-    process_assign(node); 
-  }
+    // generate code for negate operator
+    else if (node->node_type == OP_NEG) {
+      process_negate(node); 
+    }
 
-  // generate code for negate operator
-  else if (node != NULL && (node->node_type == OP_NEG)) {
-    process_negate(node); 
-  }
+    // generate code for  +, -, *, /, %, =, !=, <, <=, >, >=
+    else if (node->node_type > 0 && node->node_type <= 16 ){
+      process_math(node); 
+    }
 
-  // generate code for  +, -, *, /, %, =, !=, <, <=, >, >=
-  else if (node != NULL && (node->node_type > 0 && node->node_type <= 16 )){
-    process_math(node); 
-  }
+    else if (node->node_type == OP_INC){
+      process_inc(node, "1"); 
+    }
 
-  else if (node != NULL && node->node_type == OP_INC){
-    process_inc(node, "1"); 
-  }
-
-  else if (node != NULL && node->node_type == OP_DEC){
-    process_inc(node, "-1"); 
+    else if (node->node_type == OP_DEC){
+      process_inc(node, "-1"); 
+    }
+    else if (node->node_type == IF_STMT){
+      process_if(node); 
+    }
+    else if (node->node_type == IF_ELSE_STMT){
+      process_ifelse(node); 
+    }
+    else if (node->node_type == CMPD){
+      process_cmpd(node); 
+    }
+    /*
+    else if (node->node_type == CALL){
+      process_call(node); 
+    }
+    */ 
   }
 }
 
@@ -105,6 +137,10 @@ static char * new_address(){
   num_addresses += 1; 
 
   return buffer; 
+}
+
+static int get_num_addresses(){
+  return num_addresses; 
 }
 
 static void add_quad_list(ast_node node, quad_list quads){
@@ -140,6 +176,7 @@ static void add_quad_list(ast_node node, quad_list quads){
   }
 }
 
+// adds a quad q to the end of the code of some node
 static void add_quad(ast_node node, quad q){
   printf("add_quad\n"); 
   if (node->code->first == NULL && q != NULL){
@@ -161,16 +198,17 @@ static void add_quad(ast_node node, quad q){
 
 void print_code(quad_list code){
   if (code->first != NULL)
-    printf("(%d, %s, %s, %s)\n", code->first->opcode, code->first->address1, code->first->address2, code->first->address3); 
+    printf("%d. (%d, %s, %s, %s)\n", code->first->num, code->first->opcode, code->first->address1, code->first->address2, code->first->address3); 
   else
     printf("code->first is NULL inside print_code\n"); 
 
   quad curr; 
   for (curr = code->first->next; curr != code->first; curr = curr->next){
-    printf("(%d, %s, %s, %s)\n", curr->opcode, curr->address1, curr->address2, curr->address3); 
+    printf("%d. (%d, %s, %s, %s)\n", curr-> num, curr->opcode, curr->address1, curr->address2, curr->address3); 
   }
 }
 
+// processes the left child of a node (if it's an ID, int_literal, or double_literal)
 static char * process_left(ast_node node){
   char * left = NULL; 
   if (node->left_child != NULL && node->left_child->node_type == IDENT){
@@ -188,12 +226,13 @@ static char * process_left(ast_node node){
     snprintf(buffer, MAX_LEN,"%f", double_lit);
     left = strdup(buffer);
   }
-  else if (node->left_child != NULL){
+  else if (node->left_child != NULL && node->left_child->location != NULL){
     left = strdup(node->left_child->location);
   }
   return left; 
 }
 
+// processes the right child of a node (if it's an ID, int_literal, or double_literal)
 static char * process_right(ast_node node){
   // get right argument                                                                                                  
   ast_node right_child = node->left_child->right_sibling;
@@ -219,7 +258,7 @@ static char * process_right(ast_node node){
   return right; 
 }
 
-// handles OP_PLUS, OP_MINUS, OP_TIMES, and OP_DIVIDE
+// handles mathy operations (all the same pattern)
 static void process_math(ast_node node){
   quad new_quad = NULL;   
   if (node->node_type == OP_PLUS){
@@ -283,22 +322,38 @@ static void process_math(ast_node node){
   }          
 }
 
+// builds the code for nodes that just take the code from their children and then
+// add their own
 static void build_code(ast_node node, quad new_quad, char * address1, char * address2, char * address3){
-  new_quad->address1 = address1;
-  new_quad->address2 = address2; 
-  new_quad->address3 = address3; 
+  // builds code from its children
+  ast_node child;
+  for (child = node->left_child; child != NULL; child = child->right_sibling){
+    add_quad_list(node, child->code);
+  }
 
-  node->location = strdup(address1); 
+  // only adds a new quad if there is one
+  if (new_quad != NULL){
+    new_quad->address1 = address1;
+    new_quad->address2 = address2; 
+    new_quad->address3 = address3; 
 
+    if (address1 != NULL){
+      node->location = strdup(address1); 
+    }
+
+    add_quad(node, new_quad); 
+  }
   // get the code from the children (that exist) and then add the new line
-  if (node->left_child != NULL){
+  /* if (node->left_child != NULL){
     add_quad_list(node, node->left_child->code); 
   }
   if (node->left_child->right_sibling != NULL){
     add_quad_list(node, node->left_child->right_sibling->code); 
-  }
+    }*/ 
+}
 
-  add_quad(node, new_quad); 
+static void process_root(ast_node node){
+  build_code(node, NULL, NULL, NULL, NULL); 
 }
 
 static void process_assign(ast_node node){
@@ -355,6 +410,95 @@ static void process_inc(ast_node node, char * inc){
     error(); 
   }
 }
+
+/* builds the code for a compound: 
+ * enter scope
+ * code of its children
+ * leave scope
+ */ 
+static void process_cmpd(ast_node node){
+  quad enter_scope = create_quad(enter); 
+  quad exit_scope = create_quad(leave); 
+
+  add_quad(node, enter_scope); 
+  build_code(node, exit_scope, NULL, NULL, NULL); 
+}
+
+static void process_if(ast_node node){
+  quad if_quad = create_quad(ifFalse); 
+  char * loc = strdup(node->left_child->location); 
+  if_quad->address1 = loc; 
+
+  // add the code for the condition
+  add_quad_list(node, node->left_child->code); 
+
+  // add the ifFalse quad
+  add_quad(node, if_quad); 
+
+  // add the compound 
+  if (node->left_child->right_sibling != NULL){
+    add_quad_list(node, node->left_child->right_sibling->code); 
+  }
+
+  // number of the last quad in the if statement
+  int last_quad = node->code->first->prev->num; 
+
+  // Backpatch if_quad by filling in the number of the quad it should go to
+  // if it is false. 
+  char * buffer = malloc(10); 
+  sprintf(buffer, "%d", last_quad + 1); 
+  if_quad->address2 = buffer; 
+}
+
+static void process_ifelse(ast_node node){
+  process_if(node); 
+
+  // do the goto
+  quad jump_quad = create_quad(jumpTo); 
+  add_quad(node, jump_quad); 
+  
+  // add the else compound
+  if (node->left_child->right_sibling->right_sibling != NULL){
+    add_quad_list(node, node->left_child->right_sibling->right_sibling->code); 
+  }
+
+  // number of the last quad in the if statement 
+  int last_quad = node->code->first->prev->num;
+
+  // Backpatch the jump_quad
+  char * buffer = malloc(10); 
+  sprintf(buffer, "%d", last_quad + 1); 
+  jump_quad->address1 = buffer; 
+}
+
+/* builds the code of a function; finds its compound and takes that code */
+/* THIS IS VERY UNFINISHED - it's more complicated than this */ 
+static void process_func(ast_node node){
+  // the 3rd child of a funcdec node is the compound
+  ast_node cmpd = node->left_child->right_sibling->right_sibling; 
+
+  // check to make sure everything is ok, then builds its code (doesn't add new code)
+  if (cmpd->node_type == CMPD){
+    build_code(node, NULL, NULL, NULL, NULL); 
+    // then somehow fill in the location of the node to be the loc of whatever it returned
+  }
+  else {
+    error();
+  } 
+}
+
+/* processes a call by generating code for the function it's calling. 
+ * Gets the function by looking it up in the symbol table. 
+ */ 
+// THIS IS NOT HOW WE'RE GOING TO DO THIS. 
+/*
+static void process_call(ast_node node){
+  int level; 
+  char * func_name = node->left_child->value.string; 
+  symnode func = lookup_in_symboltable(symtab, func_name, 0, &level);    
+
+  // somehow get to the ast node from the symnode
+  }*/ 
 
 static void error(){
   printf("Error found during generation of intermediate code.\n"); 
