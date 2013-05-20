@@ -7,6 +7,7 @@
 static void test_basic(); 
 static void test_if(); 
 static void test_if_else(); 
+static void test_while(); 
 
 ast_node root = NULL;
 
@@ -23,6 +24,8 @@ int main(){
   test_if(); 
   reset_num_quads(); 
   test_if_else(); 
+  reset_num_quads(); 
+  test_while(); 
 }
 
 static void test_basic(){
@@ -65,6 +68,12 @@ static void test_basic(){
   printf("\n\n********** basic test **********\n\n"); 
   print_ast(root, 0);
   print_code(root->left_child->code);
+
+  /*  ast_node node_list[] = {minus, assign, plus, negate, inc}; 
+  int i; 
+  for (i = 0; i < 5; i++){
+    destroy_ast_node(node_list[i]); 
+    }*/ 
 }
 
 static void test_if(){
@@ -115,6 +124,14 @@ static void test_if(){
   printf("\n\n********** if test **********\n\n");
   print_ast(root, 0);
   print_code(root->left_child->code);
+  /*
+  ast_node node_list[] = {ifNode, afterIf, equals, compound, inIf, plus, x, y, a, 
+			  b, e, f, five}; 
+  int i; 
+  for (i = 0; i < 13; i++){
+    destroy_ast_node(node_list[i]); 
+    printf("test\n"); 
+    }*/ 
 }
 
 static void test_if_else(){
@@ -176,4 +193,63 @@ static void test_if_else(){
   printf("\n\n********** if else test **********\n\n");
   print_ast(root, 0);
   print_code(root->left_child->code);
+  /*
+  ast_node node_list[] = {ifNode, afterIf, equals, if_compound, else_compound, 
+			  inIf, plus, else_assign, x, y, a, b, c, d, e, f, five};
+  int i; 
+  for (i = 0; i < 17; i++){
+    destroy_ast_node(node_list[i]);
+    }*/ 
+
+}
+
+static void test_while(){
+  root = create_ast_node(ROOT); 
+  ast_node while_node = create_ast_node(WHILE_STMT); 
+  ast_node after_while = create_ast_node(OP_ASSIGN); 
+  ast_node condition = create_ast_node(OP_EQUALS); 
+  ast_node compound = create_ast_node(CMPD); 
+  ast_node equals1 = create_ast_node(OP_EQUALS); 
+  ast_node equals2 = create_ast_node(OP_EQUALS); 
+
+  ast_node x = create_ast_node(IDENT);
+  x->value.string = "x";
+  ast_node y = create_ast_node(IDENT);
+  y->value.string = "y";
+  ast_node a = create_ast_node(IDENT);
+  a->value.string = "a";
+  ast_node b = create_ast_node(IDENT);
+  b->value.string = "b";
+  ast_node c = create_ast_node(IDENT);
+  c->value.string = "c";
+  ast_node d = create_ast_node(IDENT);
+  d->value.string = "d";
+  ast_node e = create_ast_node(IDENT);
+  e->value.string = "e";
+  ast_node f = create_ast_node(IDENT);
+  f->value.string = "f";
+
+  root->left_child = while_node; 
+  while_node->left_child = condition;
+  condition->right_sibling = compound; 
+
+  condition->left_child = x; 
+  x->right_sibling = y; 
+
+  compound->left_child = equals1; 
+  equals1->right_sibling = equals2; 
+  equals1->left_child = a; 
+  a->right_sibling = b; 
+  equals2->left_child = c; 
+  c->right_sibling = d; 
+
+  while_node->right_sibling = after_while; 
+  after_while->left_child = e; 
+  e->right_sibling = f; 
+
+  generate_traverse(root); 
+  printf("\n\n********** while test **********\n\n");
+  print_ast(root, 0);
+  print_code(root->left_child->code);
+
 }

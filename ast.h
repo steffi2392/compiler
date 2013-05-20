@@ -51,6 +51,7 @@ struct ast_node_struct {
 /* Create a node with a given token type and return a pointer to the
    node. */
 ast_node create_ast_node(ast_node_type node_type);
+void destroy_ast_node(ast_node node); 
 
 /* Print the contents of a subtree of an abstract syntax tree, given
    the root of the subtree and the depth of the subtree root. */

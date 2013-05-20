@@ -27,6 +27,7 @@ static void process_cmpd(ast_node node);
 static void process_func(ast_node node); 
 static void process_if(ast_node node); 
 static void process_ifelse(ast_node node); 
+static void process_while(ast_node node); 
 static void error(); 
 
 #define MAX_LEN 201
@@ -63,12 +64,26 @@ quad_list create_quad_list(){
 }
 
 void destroy_quad(quad q){
-  free(q->address1); 
-  free(q->address2); 
-  free(q->address3); 
-  free(q->next); 
-  free(q->prev); 
-  free(q); 
+  if (q != NULL){
+    if (q->address1 != NULL)
+      free(q->address1); 
+    if (q->address2 != NULL)
+      free(q->address2); 
+    if (q->address3 != NULL)
+      free(q->address3); 
+  }
+}
+
+void destroy_quad_list(quad_list q){
+  if (q != NULL){
+    quad curr = q->first;
+    while (curr != NULL && q != NULL && curr != q->first){
+      quad next = curr->next; 
+      destroy_quad(curr); 
+      curr = next; 
+    }
+    destroy_quad(curr); 
+  } 
 }
 
 /* actually does the fun stuff */ 
@@ -96,21 +111,17 @@ static void implement_node(ast_node node){
     else if (node->node_type == OP_ASSIGN){
       process_assign(node); 
     }
-
     // generate code for negate operator
     else if (node->node_type == OP_NEG) {
       process_negate(node); 
     }
-
     // generate code for  +, -, *, /, %, =, !=, <, <=, >, >=
     else if (node->node_type > 0 && node->node_type <= 16 ){
       process_math(node); 
     }
-
     else if (node->node_type == OP_INC){
       process_inc(node, "1"); 
     }
-
     else if (node->node_type == OP_DEC){
       process_inc(node, "-1"); 
     }
@@ -122,6 +133,9 @@ static void implement_node(ast_node node){
     }
     else if (node->node_type == CMPD){
       process_cmpd(node); 
+    }
+    else if (node->node_type == WHILE_STMT){
+      process_while(node); 
     }
     /*
     else if (node->node_type == CALL){
@@ -440,18 +454,28 @@ static void process_if(ast_node node){
     add_quad_list(node, node->left_child->right_sibling->code); 
   }
 
-  // number of the last quad in the if statement
-  int last_quad = node->code->first->prev->num; 
-
   // Backpatch if_quad by filling in the number of the quad it should go to
   // if it is false. 
   char * buffer = malloc(10); 
-  sprintf(buffer, "%d", last_quad + 1); 
+  sprintf(buffer, "%d", num_quads); 
   if_quad->address2 = buffer; 
 }
 
 static void process_ifelse(ast_node node){
-  process_if(node); 
+  quad if_quad = create_quad(ifFalse);
+  char * loc = strdup(node->left_child->location);
+  if_quad->address1 = loc;
+
+  // add the code for the condition     
+  add_quad_list(node, node->left_child->code);
+
+  // add the ifFalse quad
+  add_quad(node, if_quad);
+
+  // add the compound 
+  if (node->left_child->right_sibling != NULL){
+    add_quad_list(node, node->left_child->right_sibling->code);
+  }
 
   // do the goto
   quad jump_quad = create_quad(jumpTo); 
@@ -461,14 +485,51 @@ static void process_ifelse(ast_node node){
   if (node->left_child->right_sibling->right_sibling != NULL){
     add_quad_list(node, node->left_child->right_sibling->right_sibling->code); 
   }
-
-  // number of the last quad in the if statement 
-  int last_quad = node->code->first->prev->num;
+  
+  // Backpatch if_false
+  int ifFalse_backpatch = jump_quad->next->num; 
+  char * buffer = malloc(10); 
+  sprintf(buffer, "%d", ifFalse_backpatch); 
+  if_quad->address2 = buffer; 
 
   // Backpatch the jump_quad
-  char * buffer = malloc(10); 
-  sprintf(buffer, "%d", last_quad + 1); 
+  buffer = malloc(10); 
+  sprintf(buffer, "%d", num_quads); 
   jump_quad->address1 = buffer; 
+}
+
+static void process_while(ast_node node){
+  quad if_false = create_quad(ifFalse); 
+  char * loc = strdup(node->left_child->location); 
+  if_false->address1 = loc; 
+
+  // Get the num of the quad that starts the code that computes
+  // the condition. 
+  int start_of_condition = node->left_child->code->first->num; 
+  
+  // add the code for the condition
+  add_quad_list(node, node->left_child->code); 
+  
+  // add the ifFalse quad
+  add_quad(node, if_false); 
+
+  // add the compound (body of while loop)
+  if (node->left_child->right_sibling != NULL){
+    add_quad_list(node, node->left_child->right_sibling->code); 
+  }
+
+  // create the jumpTo quad that takes you back to the condition
+  // and add it to the code
+  quad back_to_condition = create_quad(jumpTo); 
+  char *buffer = malloc(10); 
+  sprintf(buffer, "%d", start_of_condition); 
+  back_to_condition->address1 = buffer; 
+  add_quad(node, back_to_condition); 
+
+  // backpatch the ifFalse quad
+  buffer = malloc(10); 
+  sprintf(buffer, "%d", num_quads); 
+  if_false->address2 = buffer; 
 }
 
 /* builds the code of a function; finds its compound and takes that code */

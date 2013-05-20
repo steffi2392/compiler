@@ -38,6 +38,7 @@ struct quad_list_struct {
 /* Create a quad with a given opcode and return a pointer to that quad. */
 quad create_quad(opcode_type opcode); 
 void destroy_quad(quad q); 
+void destroy_quad_list(quad_list q); 
 
 /* Create a quad_list and return a pointer to it */ 
 //quad_list create_quad_list(); 

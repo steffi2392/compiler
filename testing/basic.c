@@ -13,4 +13,8 @@ int main(){
   for (i =0; i < 5; i = i+1){
     x = 1; 
   }
+  do {
+    x = 2; 
+    } while (i < 5)
+  x = 3; 
 }

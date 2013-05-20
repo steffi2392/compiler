@@ -73,8 +73,23 @@ ast_node create_ast_node(ast_node_type node_type) {
   new_node->node_type = node_type;
   new_node->left_child = new_node->right_sibling = NULL;
   new_node->isVar = 1; 
-  new_node->code = create_quad_list(); 
+  new_node->code = create_quad_list();
+  new_node->type = NULL; 
+  new_node->location = NULL; 
+  new_node->value.string = NULL; 
   return new_node;
+}
+
+void destroy_ast_node(ast_node node){
+  if (node->code != NULL)
+    destroy_quad_list(node->code);
+  if (node->type != NULL)
+    free(node->type); 
+  if (node->location != NULL)
+    free(node->location); 
+  if (node->value.string != NULL)
+    free(node->value.string); 
+  free(node); 
 }
 
 /* Print the contents of a subtree of an abstract syntax tree, given
