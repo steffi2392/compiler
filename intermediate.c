@@ -28,6 +28,8 @@ static void process_func(ast_node node);
 static void process_if(ast_node node); 
 static void process_ifelse(ast_node node); 
 static void process_while(ast_node node); 
+static void process_dowhile(ast_node node); 
+static void process_and(ast_node node); 
 static void error(); 
 
 #define MAX_LEN 201
@@ -136,6 +138,9 @@ static void implement_node(ast_node node){
     }
     else if (node->node_type == WHILE_STMT){
       process_while(node); 
+    }
+    else if (node->node_type == DO_WHILE_STMT){
+      process_dowhile(node); 
     }
     /*
     else if (node->node_type == CALL){
@@ -308,12 +313,12 @@ static void process_math(ast_node node){
   else if (node->node_type == OP_GEQ){
     new_quad = create_quad(geq); 
   }
-  else if (node->node_type == OP_AND){
+  /*  else if (node->node_type == OP_AND){
     new_quad = create_quad(and); 
   }
   else if (node->node_type == OP_OR){
     new_quad = create_quad(or); 
-  }
+    }*/ 
   else if (node->node_type == OP_NOT){
     new_quad = create_quad(not); 
   }
@@ -529,6 +534,78 @@ static void process_while(ast_node node){
   // backpatch the ifFalse quad
   buffer = malloc(10); 
   sprintf(buffer, "%d", num_quads); 
+  if_false->address2 = buffer; 
+}
+
+static void process_dowhile(ast_node node){
+  // add the compound (body of dowhile loop)
+  add_quad_list(node, node->left_child->code); 
+  int beginning = node->code->first->num;
+  
+  // add the code for the condition
+  add_quad_list(node, node->left_child->right_sibling->code); 
+
+  // test the condition (move on if it fails) and add its quad to code
+  quad if_false = create_quad(ifFalse); 
+  char * loc = strdup(node->left_child->right_sibling->location); 
+  if_false->address1 = loc; 
+  add_quad(node, if_false); 
+
+  // unconditional jump to top of compound
+  quad jump_to = create_quad(jumpTo); 
+  char * buffer = malloc(10); 
+  sprintf(buffer, "%d", beginning); 
+  jump_to->address1 = buffer; 
+  add_quad(node, jump_to); 
+  
+  // backpatch the if_false quad
+  buffer = malloc(10); 
+  sprintf(buffer, "%d", num_quads); 
+  if_false->address2 = buffer; 
+}
+
+static void process_and(ast_node node){
+  // address the value of the and will be stored here: 
+  char * and_address = new_address(); 
+
+  char * left = process_left(node); 
+  char * right = process_right(node); 
+
+  // do the code for the left child
+  add_quad_list(node, node->left_child->code); 
+  
+  // if the left child is false, short circuit
+  quad if_false = create_quad(ifFalse); 
+  char * loc = strdup(left); 
+  if_false->address1 = loc; 
+  add_quad(node, if_false); 
+
+  // do the code for the right child
+  add_quad_list(node, node->left_child->right_sibling->code); 
+  quad assign = create_quad(assn); 
+  assign->address1 = and_address; 
+  assign->address2 = right;
+  add_quad(node, assign); 
+
+  // unconditional jump to code after the and
+  quad jump_to = create_quad(jumpTo); 
+  add_quad(node, jump_to); 
+
+  // first was false, so the value is false (short circuited)
+  quad assign2 = create_quad(assn); 
+  assign2->address1 = and_address; 
+  assign2->address2 = left;
+  add_quad(node, assign2); 
+  int short_circuit = assign2->num; 
+
+  // backpatch the unconditional jump:
+  char * buffer = malloc(10); 
+  sprintf(buffer, "%d", num_quads); 
+  jump_to->address1 = buffer; 
+
+  // backpatch the short circuit
+  buffer = malloc(10); 
+  sprintf(buffer, "%d", short_circuit); 
   if_false->address2 = buffer; 
 }
 

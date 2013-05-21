@@ -8,6 +8,8 @@ static void test_basic();
 static void test_if(); 
 static void test_if_else(); 
 static void test_while(); 
+static void test_dowhile(); 
+static void test_and(); 
 
 ast_node root = NULL;
 
@@ -26,6 +28,10 @@ int main(){
   test_if_else(); 
   reset_num_quads(); 
   test_while(); 
+  reset_num_quads(); 
+  test_dowhile(); 
+  reset_num_quads(); 
+  test_and(); 
 }
 
 static void test_basic(){
@@ -252,4 +258,96 @@ static void test_while(){
   print_ast(root, 0);
   print_code(root->left_child->code);
 
+}
+static void test_dowhile(){
+  root = create_ast_node(ROOT);
+  ast_node dowhile_node = create_ast_node(DO_WHILE_STMT);
+  ast_node after_while = create_ast_node(OP_ASSIGN);
+  ast_node condition = create_ast_node(OP_LT);
+  ast_node compound = create_ast_node(CMPD);
+  ast_node equals1 = create_ast_node(OP_EQUALS);
+  ast_node equals2 = create_ast_node(OP_EQUALS);
+
+  ast_node x = create_ast_node(IDENT);
+  x->value.string = "x";
+  ast_node y = create_ast_node(IDENT);
+  y->value.string = "y";
+  ast_node a = create_ast_node(IDENT);
+  a->value.string = "a";
+  ast_node b = create_ast_node(IDENT);
+  b->value.string = "b";
+  ast_node c = create_ast_node(IDENT);
+  c->value.string = "c";
+  ast_node d = create_ast_node(IDENT);
+  d->value.string = "d";
+  ast_node e = create_ast_node(IDENT);
+  e->value.string = "e";
+  ast_node f = create_ast_node(IDENT);
+  f->value.string = "f";
+
+  root->left_child = dowhile_node;
+  dowhile_node->left_child = compound;
+  compound->right_sibling = condition;
+
+  condition->left_child = x;
+  x->right_sibling = y;
+
+  compound->left_child = equals1;
+  equals1->right_sibling = equals2;
+  equals1->left_child = a;
+  a->right_sibling = b;
+  equals2->left_child = c;
+  c->right_sibling = d;
+
+  dowhile_node->right_sibling = after_while;
+  after_while->left_child = e;
+  e->right_sibling = f;
+  
+  printf("\n\n********** do while test **********\n\n");
+  print_ast(root, 0);
+  generate_traverse(root); 
+  print_code(root->left_child->code);
+}
+
+static void test_and(){
+  root = create_ast_node(ROOT); 
+  ast_node and = create_ast_node(OP_AND); 
+  ast_node lt = create_ast_node(OP_LT); 
+  ast_node equals = create_ast_node(OP_EQUALS);
+  ast_node assign = create_ast_node(OP_ASSIGN); 
+  ast_node x = create_ast_node(IDENT); 
+  x->value.string = "x"; 
+  ast_node five = create_ast_node(INT_LITERAL); 
+  five->value.int_value = 5; 
+
+  ast_node y = create_ast_node(IDENT); 
+  y->value.string = "y"; 
+
+  ast_node two = create_ast_node(INT_LITERAL); 
+  two->value.int_value = 2; 
+
+  ast_node z = create_ast_node(IDENT); 
+  z->value.string = "z"; 
+
+  ast_node one = create_ast_node(INT_LITERAL); 
+  one->value.int_value = 1; 
+
+  root->left_child = and; 
+  and->right_sibling = assign; 
+  
+  and->left_child = lt; 
+  lt->right_sibling = equals; 
+  lt->left_child = x; 
+  x->right_sibling = five; 
+
+  equals->left_child = y; 
+  y->right_sibling = two; 
+
+  assign->left_child = z; 
+  z->right_sibling = one; 
+
+  printf("\n\n********** and test **********\n\n");
+  print_ast(root, 0);
+  generate_traverse(root);
+  print_code(root->left_child->code);
 }

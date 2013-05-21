@@ -14,7 +14,7 @@ int main(){
     x = 1; 
   }
   do {
-    x = 2; 
-    } while (i < 5)
+
+    } while (i < 5 && i == 2)
   x = 3; 
 }
