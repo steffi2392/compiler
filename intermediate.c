@@ -33,6 +33,9 @@ static void process_and(ast_node node);
 static void process_or(ast_node node); 
 static void process_for_header(ast_node node); 
 static void process_for(ast_node node); 
+static void process_read(ast_node node); 
+static void process_return(ast_node node); 
+static void process_function(ast_node node); 
 static void error(); 
 
 #define MAX_LEN 201
@@ -156,6 +159,15 @@ static void implement_node(ast_node node){
     }
     else if (node->node_type == FOR_STMT){
       process_for(node); 
+    }
+    else if (node->node_type == READ_STMT){
+      process_read(node); 
+    }
+    else if (node->node_type == RETURN_STMT){
+      process_return(node); 
+    }
+    else if (node->node_type == FUNCDEC){
+      process_function(node); 
     }
     /*
     else if (node->node_type == CALL){
@@ -711,11 +723,39 @@ static void process_for(ast_node node){
   if_false->address2 = buffer; 
 }
 
+static void process_read(ast_node node){
+  quad read_quad = create_quad(read); 
+  char * left = process_left(node); 
+  read_quad->address1 = left; 
+
+  add_quad(node, read_quad); 
+}
+
+static void process_return(ast_node node){
+  quad return_quad = create_quad(rtrn); 
+  char * left = process_left(node); 
+  return_quad->address1 = left; 
+  node->location = left; 
+
+  add_quad_list(node, node->left_child->code); 
+  add_quad(node, return_quad); 
+}
+
+/* 
+static void process_print(ast_node node){
+  quad print_quad = create_quad(print); 
+  char *left = process_left(node); 
+  print_quad->address1 = left; 
+
+  add_quad_list(node, node->left_child->code); 
+  add_quad(node, print_quad); 
+  }*/ 
+
 /* builds the code of a function; finds its compound and takes that code */
 /* THIS IS VERY UNFINISHED - it's more complicated than this */ 
-static void process_func(ast_node node){
+static void process_function(ast_node node){
   // the 3rd child of a funcdec node is the compound
-  ast_node cmpd = node->left_child->right_sibling->right_sibling; 
+  ast_node cmpd = node->left_child->right_sibling->right_sibling->right_sibling; 
 
   // check to make sure everything is ok, then builds its code (doesn't add new code)
   if (cmpd->node_type == CMPD){
@@ -725,7 +765,12 @@ static void process_func(ast_node node){
   else {
     error("process_func");
   } 
+
+  // the location that the value is stored in is wherever the return value is stored!
+  node->location = NULL; 
+  
 }
+
 
 /* processes a call by generating code for the function it's calling. 
  * Gets the function by looking it up in the symbol table. 

@@ -17,6 +17,8 @@ int main(){
 
     } while (i < 5 || i == 2)
   x = 3; 
+  read x; 
+  print x + 5; 
 }
 
 int loop(){
@@ -25,4 +27,5 @@ int loop(){
   for (i=0; i < 5; i = i + 1){
     x = x + 1; 
   }
+  return 1 + 2 + 3; 
 }
