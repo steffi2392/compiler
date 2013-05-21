@@ -30,6 +30,9 @@ static void process_ifelse(ast_node node);
 static void process_while(ast_node node); 
 static void process_dowhile(ast_node node); 
 static void process_and(ast_node node); 
+static void process_or(ast_node node); 
+static void process_for_header(ast_node node); 
+static void process_for(ast_node node); 
 static void error(); 
 
 #define MAX_LEN 201
@@ -118,7 +121,7 @@ static void implement_node(ast_node node){
       process_negate(node); 
     }
     // generate code for  +, -, *, /, %, =, !=, <, <=, >, >=
-    else if (node->node_type > 0 && node->node_type <= 16 ){
+    else if (node->node_type > 0 && node->node_type <= 16 && node->node_type != 14 && node->node_type != 15){
       process_math(node); 
     }
     else if (node->node_type == OP_INC){
@@ -142,6 +145,18 @@ static void implement_node(ast_node node){
     else if (node->node_type == DO_WHILE_STMT){
       process_dowhile(node); 
     }
+    else if (node->node_type == OP_AND){
+      process_and(node); 
+    }
+    else if (node->node_type == OP_OR){
+      process_or(node); 
+    }
+    else if (node->node_type == FOR_STRT || node->node_type == FOR_COND || node->node_type == FOR_UPDT){
+      process_for_header(node); 
+    }
+    else if (node->node_type == FOR_STMT){
+      process_for(node); 
+    }
     /*
     else if (node->node_type == CALL){
       process_call(node); 
@@ -163,14 +178,11 @@ static int get_num_addresses(){
 }
 
 static void add_quad_list(ast_node node, quad_list quads){
-  printf("inside add_quad_list\n"); 
   if (node->code->first == NULL && quads != NULL ){
-    printf("inside if \n"); 
     node->code = quads; 
     //    node->code->first = quads->first;
   }
   else if (quads != NULL && quads->first != NULL) {
-    printf("inside else \n"); 
     // testing
     if (node->code == NULL)
       printf("node->code\n"); 
@@ -197,17 +209,12 @@ static void add_quad_list(ast_node node, quad_list quads){
 
 // adds a quad q to the end of the code of some node
 static void add_quad(ast_node node, quad q){
-  printf("add_quad\n"); 
   if (node->code->first == NULL && q != NULL){
-    printf("inside if\n"); 
     node->code->first = q; 
     q->next = q; 
     q->prev = q; 
   }
   else if (q != NULL) {
-    printf("inside else\n"); 
-    printf("node->code->first: (%d, %s, %s, %s)\n", node->code->first->opcode, node->code->first->address1, node->code->first->address2, node->code->first->address3); 
-    printf("quad: (%d, %s, %s, %s)\n", q->opcode, q->address1, q->address2, q->address3); 
     q->prev = node->code->first->prev; 
     q->next = node->code->first; 
     node->code->first->prev->next = q; 
@@ -328,16 +335,16 @@ static void process_math(ast_node node){
        
   // get left argument     
   char * left = process_left(node);  
-                 
+  
   // get right argument         
   char * right = process_right(node);       
-
+  
   if (new_quad != NULL && target != NULL && left != NULL && right != NULL){                
     build_code(node, new_quad, target, left, right);  
   }            
   else {  
     destroy_quad(new_quad);        
-    error();                 
+    error("process math");                 
   }          
 }
 
@@ -394,7 +401,7 @@ static void process_assign(ast_node node){
   }
   else{
     destroy_quad(new_quad);
-    error();
+    error("process_assign");
   }
 }
 
@@ -410,7 +417,7 @@ static void process_negate(ast_node node){
   }
   else{
     destroy_quad(new_quad); 
-    error(); 
+    error("process_negate"); 
   }
 }
 
@@ -426,7 +433,7 @@ static void process_inc(ast_node node, char * inc){
   }
   else{
     destroy_quad(new_quad); 
-    error(); 
+    error("process inc"); 
   }
 }
 
@@ -518,7 +525,7 @@ static void process_while(ast_node node){
   // add the ifFalse quad
   add_quad(node, if_false); 
 
-  // add the compound (body of while loop)
+  // add the code for the body
   if (node->left_child->right_sibling != NULL){
     add_quad_list(node, node->left_child->right_sibling->code); 
   }
@@ -567,6 +574,7 @@ static void process_dowhile(ast_node node){
 static void process_and(ast_node node){
   // address the value of the and will be stored here: 
   char * and_address = new_address(); 
+  node->location = and_address; 
 
   char * left = process_left(node); 
   char * right = process_right(node); 
@@ -609,6 +617,100 @@ static void process_and(ast_node node){
   if_false->address2 = buffer; 
 }
 
+static void process_or(ast_node node){
+  // the value of the OR will be stored here: 
+  char * or_address = new_address(); 
+  node->location = or_address; 
+
+  char * left = process_left(node); 
+  char * right = process_right(node); 
+
+  // add the code for the left child
+  add_quad_list(node, node->left_child->code); 
+
+  // if the left child is false, go to test for right child
+  quad if_false = create_quad(ifFalse); 
+  char * loc = strdup(left); 
+  if_false->address1 = loc; 
+  add_quad(node, if_false); 
+
+  // unconditional jump (short circuiting)
+  quad short_circuit = create_quad(jumpTo); 
+  add_quad(node, short_circuit); 
+
+  // add the code for the right child - if_false jumps here!
+  add_quad_list(node, node->left_child->right_sibling->code);
+  int if_false_jumps_here = node->left_child->right_sibling->code->first->num; 
+  char * buffer = malloc(10); 
+  sprintf(buffer, "%d", if_false_jumps_here); 
+  if_false->address2 = buffer; 
+
+  // OR gets the value of the right child
+  quad assign_from_right = create_quad(assn); 
+  assign_from_right->address1 = or_address; 
+  assign_from_right->address2 = right; 
+  add_quad(node, assign_from_right); 
+
+  // unconditional jump (done) 
+  quad done_jump = create_quad(jumpTo); 
+  add_quad(node, done_jump); 
+
+  // OR gets the value of the left child - short circuit jumps here!
+  quad assign_from_left = create_quad(assn); 
+  assign_from_left->address1 = or_address; 
+  assign_from_left->address2 = left; 
+  add_quad(node, assign_from_left); 
+  
+  // backpatch short_circuit
+  buffer = malloc(10); 
+  sprintf(buffer, "%d", assign_from_left->num); 
+  short_circuit->address1 = buffer; 
+
+  // backpatch done_jump (goes to next generated quad)
+  buffer = malloc(10); 
+  sprintf(buffer, "%d", num_quads); 
+  done_jump->address1 = buffer; 
+}
+
+/* Handles START, CONDITION, and UPDATE of a for-loop, 
+ * they just get values from their children 
+ */ 
+static void process_for_header(ast_node node){
+  node->code = node->left_child->code; 
+  node->location = node->left_child->location; 
+}
+
+static void process_for(ast_node node){
+  // add start and condition code
+  add_quad_list(node, node->left_child->code); 
+  add_quad_list(node, node->left_child->right_sibling->code); 
+  int cond_start = node->left_child->right_sibling->code->first->num; 
+
+  // if the condition is false, exit the loop 
+  char * condition_location = node->left_child->right_sibling->location; 
+  quad if_false = create_quad(ifFalse); 
+  if_false->address1 = condition_location; 
+  add_quad(node, if_false); 
+
+  // add the code for the compound
+  add_quad_list(node, node->left_child->right_sibling->right_sibling->right_sibling->code); 
+  
+  // add update code
+  add_quad_list(node, node->left_child->right_sibling->right_sibling->code); 
+
+  // unconditional jump back to the condition
+  quad jump = create_quad(jumpTo); 
+  char * buffer = malloc(10); 
+  sprintf(buffer, "%d", cond_start); 
+  jump->address1 = buffer; 
+  add_quad(node, jump); 
+
+  // backpatch the if_false quad
+  buffer = malloc(10); 
+  sprintf(buffer, "%d", num_quads); 
+  if_false->address2 = buffer; 
+}
+
 /* builds the code of a function; finds its compound and takes that code */
 /* THIS IS VERY UNFINISHED - it's more complicated than this */ 
 static void process_func(ast_node node){
@@ -621,7 +723,7 @@ static void process_func(ast_node node){
     // then somehow fill in the location of the node to be the loc of whatever it returned
   }
   else {
-    error();
+    error("process_func");
   } 
 }
 
@@ -638,6 +740,6 @@ static void process_call(ast_node node){
   // somehow get to the ast node from the symnode
   }*/ 
 
-static void error(){
-  printf("Error found during generation of intermediate code.\n"); 
+static void error(char * string){
+  printf("Error found during generation of intermediate code in %s.\n", string); 
 }

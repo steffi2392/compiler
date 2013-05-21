@@ -15,6 +15,14 @@ int main(){
   }
   do {
 
-    } while (i < 5 && i == 2)
+    } while (i < 5 || i == 2)
   x = 3; 
+}
+
+int loop(){
+  int i;
+  double x; 
+  for (i=0; i < 5; i = i + 1){
+    x = x + 1; 
+  }
 }

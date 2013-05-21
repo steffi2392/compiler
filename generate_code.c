@@ -10,7 +10,9 @@ static void test_if_else();
 static void test_while(); 
 static void test_dowhile(); 
 static void test_and(); 
-
+static void test_or(); 
+static void test_for();
+ 
 ast_node root = NULL;
 
 extern int yyparse(); 
@@ -32,6 +34,10 @@ int main(){
   test_dowhile(); 
   reset_num_quads(); 
   test_and(); 
+  reset_num_quads(); 
+  test_or(); 
+  reset_num_quads(); 
+  test_for(); 
 }
 
 static void test_basic(){
@@ -347,6 +353,137 @@ static void test_and(){
   z->right_sibling = one; 
 
   printf("\n\n********** and test **********\n\n");
+  print_ast(root, 0);
+  generate_traverse(root);
+  print_code(root->left_child->code);
+}
+
+static void test_or(){
+  root = create_ast_node(ROOT);
+  ast_node or = create_ast_node(OP_OR);
+  ast_node lt = create_ast_node(OP_LT);
+  ast_node equals = create_ast_node(OP_EQUALS);
+  ast_node assign = create_ast_node(OP_ASSIGN);
+  ast_node x = create_ast_node(IDENT);
+  x->value.string = "x";
+  ast_node five = create_ast_node(INT_LITERAL);
+  five->value.int_value = 5;
+
+  ast_node y = create_ast_node(IDENT);
+  y->value.string = "y";
+
+  ast_node two = create_ast_node(INT_LITERAL);
+  two->value.int_value = 2;
+
+  ast_node z = create_ast_node(IDENT);
+  z->value.string = "z";
+
+  ast_node one = create_ast_node(INT_LITERAL);
+  one->value.int_value = 1;
+
+  root->left_child = or;
+  or->right_sibling = assign;
+
+  or->left_child = lt;
+  lt->right_sibling = equals;
+  lt->left_child = x;
+  x->right_sibling = five;
+
+  equals->left_child = y;
+  y->right_sibling = two;
+
+  assign->left_child = z;
+  z->right_sibling = one;
+
+  printf("\n\n********** or test **********\n\n");
+  print_ast(root, 0);
+  generate_traverse(root);
+  print_code(root->left_child->code);
+}
+
+static void test_for(){
+  root = create_ast_node(ROOT); 
+  ast_node for_node = create_ast_node(FOR_STMT); 
+  ast_node start = create_ast_node(FOR_STRT); 
+  ast_node cond = create_ast_node(FOR_COND); 
+  ast_node update = create_ast_node(FOR_UPDT); 
+  ast_node compound = create_ast_node(CMPD); 
+  
+  ast_node assign1 = create_ast_node(OP_ASSIGN);
+  ast_node lt = create_ast_node(OP_LT); 
+  ast_node assign2 = create_ast_node(OP_ASSIGN); 
+  ast_node plus = create_ast_node(OP_PLUS); 
+  ast_node assign3 = create_ast_node(OP_ASSIGN); 
+  ast_node plus2 = create_ast_node(OP_PLUS); 
+  ast_node after_for = create_ast_node(OP_ASSIGN); 
+
+  ast_node i = create_ast_node(IDENT); 
+  i->value.string = "i"; 
+
+  ast_node zero = create_ast_node(INT_LITERAL); 
+  zero->value.int_value = 0; 
+
+  ast_node i2 = create_ast_node(IDENT); 
+  i2->value.string = "i"; 
+
+  ast_node five = create_ast_node(INT_LITERAL); 
+  five->value.int_value = 5; 
+
+  ast_node i3 = create_ast_node(IDENT); 
+  i3->value.string = "i"; 
+
+  ast_node i4 = create_ast_node(IDENT); 
+  i4->value.string = "i"; 
+
+  ast_node one = create_ast_node(INT_LITERAL); 
+  one->value.int_value = 1; 
+
+  ast_node x = create_ast_node(IDENT); 
+  x->value.string = "x"; 
+  
+  ast_node y = create_ast_node(IDENT); 
+  y->value.string = "y"; 
+
+  ast_node one2 = create_ast_node(INT_LITERAL); 
+  one2->value.int_value = 1; 
+
+  ast_node a = create_ast_node(IDENT); 
+  a->value.string = "a"; 
+
+  ast_node b =create_ast_node(IDENT); 
+  b->value.string = "b"; 
+
+  root->left_child = for_node; 
+  for_node->right_sibling = after_for; 
+  for_node->left_child = start; 
+  
+  start->left_child = assign1; 
+  assign1->left_child = i; 
+  i->right_sibling = zero; 
+  start->right_sibling = cond; 
+
+  cond->left_child = lt; 
+  lt->left_child = i2; 
+  i2->right_sibling = five; 
+  cond->right_sibling = update; 
+
+  update->left_child = assign2;
+  assign2->left_child = i3; 
+  i3->right_sibling = plus; 
+  plus->left_child = i4; 
+  i4->right_sibling = one; 
+  update->right_sibling = compound; 
+
+  compound->left_child = assign3; 
+  assign3->left_child = x; 
+  x->right_sibling = plus2; 
+  plus2->left_child = y; 
+  y->right_sibling = one2; 
+
+  after_for->left_child = a; 
+  a->right_sibling = b; 
+
+  printf("\n\n********** for test **********\n\n");
   print_ast(root, 0);
   generate_traverse(root);
   print_code(root->left_child->code);
