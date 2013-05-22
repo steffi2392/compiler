@@ -26,7 +26,7 @@ typedef enum { ROOT,
 	       IDENT, CALL, 
 	       INT_TYPE, DOUBLE_TYPE,VOID_TYPE, FUNCDEC, CMPD, 
 	       ARRAY,
-	       INT_LITERAL, DOUBLE_LITERAL, PARAMS, STRING_LIT, FOR_STRT, FOR_COND, FOR_UPDT, } ast_node_type;
+	       INT_LITERAL, DOUBLE_LITERAL, PARAMS, ARGS, STRING_LIT, FOR_STRT, FOR_COND, FOR_UPDT, } ast_node_type;
 
 /* Structure for nodes of the abstract syntax tree.  Uses the
    left-child/right-sibling representation, so that each node can have

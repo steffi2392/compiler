@@ -19,9 +19,11 @@ int main(){
   x = 3; 
   read x; 
   print x + 5; 
+
+  loop(1+2, 3); 
 }
 
-int loop(){
+int loop(int a, double b){
   int i;
   double x; 
   for (i=0; i < 5; i = i + 1){

@@ -59,6 +59,7 @@ static struct token_lookup token_table[] = {
   {"INTLIT", INT_LITERAL },
   {"DOUBLELIT", DOUBLE_LITERAL },
   {"PARAMETERS", PARAMS},
+  {"ARGS", ARGS},
   {"STRING",STRING_LIT },
   {"START", FOR_STRT},
   {"CONDITION", FOR_COND},

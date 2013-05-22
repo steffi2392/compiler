@@ -14,7 +14,8 @@ static void test_or();
 static void test_for();
 static void test_read_print(); 
 static void test_function(); 
- 
+static void test_call();
+  
 ast_node root = NULL;
 
 extern int yyparse(); 
@@ -25,7 +26,7 @@ table symbol_table;
 
 
 int main(){
-  test_basic(); 
+  /*  test_basic(); 
   reset_num_quads(); 
   test_if(); 
   reset_num_quads(); 
@@ -43,7 +44,10 @@ int main(){
   reset_num_quads(); 
   test_read_print(); 
   reset_num_quads(); 
+  */ 
   test_function(); 
+  reset_num_quads(); 
+  test_call(); 
 }
 
 static void test_basic(){
@@ -517,9 +521,19 @@ static void test_function(){
   ast_node func_dec = create_ast_node(FUNCDEC); 
   ast_node type = create_ast_node(INT_TYPE); 
   ast_node name = create_ast_node(IDENT); 
+  name->value.string = "main"; 
   ast_node params_node = create_ast_node(PARAMS); 
+  ast_node int_node = create_ast_node(INT_TYPE); 
+  ast_node x = create_ast_node(IDENT); 
+  x->value.string = "x"; 
+  ast_node double_node = create_ast_node(DOUBLE_TYPE); 
+  ast_node y = create_ast_node(IDENT); 
+  y->value.string = "y"; 
   ast_node cmpd = create_ast_node(CMPD); 
   ast_node assign = create_ast_node(OP_ASSIGN); 
+  ast_node a_dec = create_ast_node(INT_TYPE); 
+  ast_node a0 = create_ast_node(IDENT); 
+  a0->value.string = "a"; 
   ast_node a = create_ast_node(IDENT); 
   a->value.string = "a"; 
   ast_node b = create_ast_node(IDENT); 
@@ -534,9 +548,18 @@ static void test_function(){
   name->right_sibling = params_node;
   params_node->right_sibling = cmpd; 
   
+  params_node->left_child = int_node; 
+  int_node->left_child = x; 
+  int_node->right_sibling = double_node; 
+  double_node->left_child = y; 
+
+  //  cmpd->left_child = a_dec; 
+  //a_dec->right_sibling = assign; 
+  a_dec->left_child = a0; 
+  
   cmpd->left_child = assign; 
-  assign->left_child = a; 
-  a->right_sibling = b; 
+  assign->left_child = a_dec; 
+  a_dec->right_sibling = b; 
   assign->right_sibling = return_node; 
   return_node->left_child = a2; 
 
@@ -545,4 +568,35 @@ static void test_function(){
   generate_traverse(root);
   print_code(root->left_child->code);
 
+}
+
+static void test_call(){
+  root = create_ast_node(ROOT);
+  ast_node call = create_ast_node(CALL); 
+  ast_node name = create_ast_node(IDENT); 
+  name->value.string = "main"; 
+
+  ast_node args = create_ast_node(ARGS); 
+  ast_node x = create_ast_node(IDENT); 
+  x->value.string = "x"; 
+
+  ast_node plus = create_ast_node(OP_PLUS);
+  ast_node one = create_ast_node(INT_LITERAL); 
+  one->value.int_value = 1; 
+  ast_node two = create_ast_node(DOUBLE_LITERAL); 
+  two->value.double_value = 2; 
+
+  root->left_child = call; 
+  call->left_child = name; 
+  name->right_sibling = args; 
+  
+  args->left_child = x; 
+  x->right_sibling = plus; 
+  plus->left_child = one; 
+  one->right_sibling = two; 
+
+  printf("\n\n********** call test **********\n\n");
+  print_ast(root, 0);
+  generate_traverse(root);
+  print_code(root->left_child->code);
 }

@@ -13,8 +13,10 @@
 static void implement_node(ast_node node); 
 static char * new_address();
 static int get_num_addresses();  
-static void add_quad_list(ast_node node, quad_list quads); 
+static void add_quad_list(ast_node node, quad_list quads);
+static void add_quad_list_to_beginning(ast_node node, quad_list quads);  
 static void add_quad(ast_node node, quad q); 
+static void add_quad_to_beginning(ast_node node, quad q); 
 static char * process_left(ast_node node); 
 static char * process_right(ast_node node); 
 static void build_code(ast_node node, quad new_quad, char * address1, char * address2, char * address3); 
@@ -37,6 +39,9 @@ static void process_read(ast_node node);
 static void process_return(ast_node node); 
 static void process_function(ast_node node); 
 static void process_params(ast_node node); 
+static void process_vardec(ast_node node); 
+static void process_call(ast_node node); 
+static void process_id(ast_node node); 
 static void error(); 
 
 #define MAX_LEN 201
@@ -173,11 +178,15 @@ static void implement_node(ast_node node){
     else if (node->node_type == PARAMS){
       process_params(node); 
     }
-    /*
+    else if (node->node_type == INT_TYPE || node->node_type == DOUBLE_TYPE){
+      process_vardec(node); 
+    }
     else if (node->node_type == CALL){
       process_call(node); 
-    }
-    */ 
+    } 
+    else if (node->node_type == IDENT){
+      process_id(node); 
+    } 
   }
 }
 
@@ -193,33 +202,35 @@ static int get_num_addresses(){
   return num_addresses; 
 }
 
+// adds a quadlist to the end of the code of some node
 static void add_quad_list(ast_node node, quad_list quads){
   if (node->code->first == NULL && quads != NULL ){
     node->code = quads; 
-    //    node->code->first = quads->first;
   }
   else if (quads != NULL && quads->first != NULL) {
-    // testing
-    if (node->code == NULL)
-      printf("node->code\n"); 
-    else if (node->code->first == NULL)
-      printf("node->code->first\n"); 
-    else if (node->code->first->prev == NULL)
-      printf("node->code->first->prev\n"); 
-    else if (node->code->first->prev->next == NULL)
-      printf("node->code->first->prev->next\n"); 
-
-    if (quads->first == NULL)
-      printf("quads->first\n"); 
-    else if (quads->first->prev == NULL)
-      printf("quads->first->prev\n"); 
-
+    
     quad code_old_last = node->code->first->prev; 
     
     node->code->first->prev->next = quads->first;
     node->code->first->prev = quads->first->prev; 
     quads->first->prev = code_old_last; 
     node->code->first->prev->next = node->code->first; 
+  }
+}
+
+// adds a quadlist to the beginning of the code of some node
+static void add_quad_list_to_beginning(ast_node node, quad_list quads){
+  if (node->code->first == NULL){
+    node->code = quads; 
+  }
+  else if (quads != NULL && quads->first != NULL){
+    quads->first->prev->next = node->code->first; 
+    quad quads_old_last = quads->first->prev; 
+    quads->first->prev = node->code->first->prev;
+
+    node->code->first->prev = quads_old_last; 
+    quads->first->prev->next = quads->first; 
+    node->code->first = quads->first; 
   }
 }
 
@@ -235,6 +246,22 @@ static void add_quad(ast_node node, quad q){
     q->next = node->code->first; 
     node->code->first->prev->next = q; 
     node->code->first->prev = q; 
+  }
+}
+
+// adds a quad q to the beginning of the code of some node
+static void add_quad_to_beginning(ast_node node, quad q){
+  if (node->code->first == NULL && q != NULL){
+    node->code->first = q; 
+    q->next = q; 
+    q->prev = q; 
+  }
+  else if (q != NULL){
+    q->next = node->code->first; 
+    q->prev = node->code->first->prev; 
+    node->code->first->prev = q; 
+    q->prev->next = q; 
+    node->code->first = q; 
   }
 }
 
@@ -324,18 +351,25 @@ static char *  print_opcode(int code){
     return "func_dec"; 
     break; 
   case 23: 
-    return "exit_sub"; 
+    return "goto_sub"; 
     break; 
   case 24: 
-    return "push"; 
+    return "exit_sub"; 
     break; 
   case 25: 
+    return "push"; 
+    break; 
+  case 26: 
     return "pop"; 
+    break; 
+  case 27: 
+    return "vardec"; 
     break; 
   }
 }
 
 // processes the left child of a node (if it's an ID, int_literal, or double_literal)
+// or if it's a declaration or if it has a location
 static char * process_left(ast_node node){
   char * left = NULL; 
   if (node->left_child != NULL && node->left_child->node_type == IDENT){
@@ -877,29 +911,63 @@ static void process_function(ast_node node){
 static void process_params(ast_node node){
   ast_node param = node->left_child; 
   while (param != NULL){
+    // add the code for the variable declaration
+    add_quad_list(node, param->code); 
+
     quad pop_quad = create_quad(pop); 
     pop_quad->address1 = new_address();
     add_quad(node, pop_quad); 
 
     quad assign = create_quad(assn);
-    assign->address1 = param->value.string; 
+    assign->address1 = param->left_child->value.string; 
     assign->address2 = pop_quad->address1; 
     add_quad(node, assign); 
+
+    param = param->right_sibling; 
   }
 }
 
-/* processes a call by generating code for the function it's calling. 
- * Gets the function by looking it up in the symbol table. 
- */ 
-// THIS IS NOT HOW WE'RE GOING TO DO THIS. 
-/*
-static void process_call(ast_node node){
-  int level; 
-  char * func_name = node->left_child->value.string; 
-  symnode func = lookup_in_symboltable(symtab, func_name, 0, &level);    
+// declare a variable
+// This only happens if it has a left child (otherwise it's saying the type
+// of a function. 
+static void process_vardec(ast_node node){
+  if (node->left_child != NULL){
+    quad vardec_quad = create_quad(vardec); 
+    vardec_quad->address1 = node->left_child->value.string; 
+    
+    // set the location of the int_type or double_type quad to the var name
+    node->location = node->left_child->value.string; 
 
-  // somehow get to the ast node from the symnode
-  }*/ 
+    add_quad(node, vardec_quad); 
+  }
+}
+
+/* processes a call 
+ * 1. push the params onto the stack
+ * 2. goto_sub the function (location will be stored in symbol table maybe?) 
+ */ 
+static void process_call(ast_node node){
+  // push the params onto the stack in reverse order
+  ast_node args = node->left_child->right_sibling; 
+
+  ast_node curr; 
+  for (curr = args->left_child; curr != NULL; curr = curr->right_sibling){
+    quad push_quad = create_quad(push); 
+    push_quad->address1 = curr->location; 
+    add_quad_to_beginning(node, push_quad); 
+    add_quad_list_to_beginning(node, curr->code); 
+    //add_quad(node, push_quad); 
+    //add_quad_list(node, curr->code); 
+  }
+
+  quad goto_sub_quad = create_quad(goto_sub); 
+  goto_sub_quad->address1 = node->left_child->value.string; 
+  add_quad(node, goto_sub_quad); 
+} 
+
+static void process_id(ast_node node){
+  node->location = node->value.string; 
+}
 
 static void error(char * string){
   printf("Error found during generation of intermediate code in %s.\n", string); 
