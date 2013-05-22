@@ -21,7 +21,6 @@ static char * process_left(ast_node node);
 static char * process_right(ast_node node); 
 static void build_code(ast_node node, quad new_quad, char * address1, char * address2, char * address3); 
 static char * print_opcode(int code); 
-static void process_root(ast_node node); 
 static void process_assign(ast_node node); 
 static void process_math(ast_node node); 
 static void process_negate(ast_node node); 
@@ -36,12 +35,14 @@ static void process_or(ast_node node);
 static void process_for_header(ast_node node); 
 static void process_for(ast_node node); 
 static void process_read(ast_node node); 
+static void process_print(ast_node node); 
 static void process_return(ast_node node); 
 static void process_function(ast_node node); 
 static void process_params(ast_node node); 
 static void process_vardec(ast_node node); 
 static void process_call(ast_node node); 
 static void process_id(ast_node node); 
+static void process_root(ast_node node); 
 static void error(); 
 
 #define MAX_LEN 201
@@ -168,6 +169,9 @@ static void implement_node(ast_node node){
     }
     else if (node->node_type == READ_STMT){
       process_read(node); 
+    }
+    else if (node->node_type == PRINT_STMT){
+      process_print(node); 
     }
     else if (node->node_type == RETURN_STMT){
       process_return(node); 
@@ -387,6 +391,9 @@ static char * process_left(ast_node node){
     snprintf(buffer, MAX_LEN,"%f", double_lit);
     left = strdup(buffer);
   }
+  else if (node->left_child != NULL && node->left_child->node_type == STRING_LIT){
+    left = node->left_child->value.string; 
+  }
   else if (node->left_child != NULL && node->left_child->location != NULL){
     left = strdup(node->left_child->location);
   }
@@ -511,10 +518,6 @@ static void build_code(ast_node node, quad new_quad, char * address1, char * add
   if (node->left_child->right_sibling != NULL){
     add_quad_list(node, node->left_child->right_sibling->code); 
     }*/ 
-}
-
-static void process_root(ast_node node){
-  build_code(node, NULL, NULL, NULL, NULL); 
 }
 
 static void process_assign(ast_node node){
@@ -864,7 +867,7 @@ static void process_return(ast_node node){
   add_quad(node, return_quad); 
 }
 
-/* 
+
 static void process_print(ast_node node){
   quad print_quad = create_quad(print); 
   char *left = process_left(node); 
@@ -872,7 +875,7 @@ static void process_print(ast_node node){
 
   add_quad_list(node, node->left_child->code); 
   add_quad(node, print_quad); 
-  }*/ 
+} 
 
 /* builds the code of a function; 
  * 1. Function declaration
@@ -967,6 +970,36 @@ static void process_call(ast_node node){
 
 static void process_id(ast_node node){
   node->location = node->value.string; 
+}
+
+/* Process the root
+ * 1. generate code for global vars and such (all before funcdecs)
+ * 2. code for main function (if there is one)
+ * 3. code for all other functions
+ */ 
+static void process_root(ast_node node){
+  // 1. generate code for everything before the function declarations
+  ast_node curr; 
+  for (curr = node->left_child; curr != NULL && curr->node_type != FUNCDEC; curr = curr->right_sibling){
+    add_quad_list(node, curr->code); 
+  }
+
+  // 2. find the main funcdec and add its code
+  // START HERE!!!!!
+  // YOU NEED TO COMPARE THE NAME OF THE FUNCTION WHICH IS IN ITS 2ND CHILD
+  ast_node first_funcdec = curr;
+  ast_node main; 
+  for (main = first_funcdec; main != NULL && strcmp(main->value.string, "main") != 0; main = main->right_sibling); 
+  
+  if (main!= NULL)
+    add_quad_list(node, main->code); 
+
+  // 3. add the code for all the other functions
+  for (curr = first_funcdec; curr != NULL; curr = curr->right_sibling){
+    if (strcmp(curr->value.string, "main") != 0){
+      add_quad_list(node, curr->code); 
+    }
+  }
 }
 
 static void error(char * string){

@@ -42,9 +42,9 @@ int main(){
   reset_num_quads(); 
   test_for(); 
   reset_num_quads(); 
+  */
   test_read_print(); 
-  reset_num_quads(); 
-  */ 
+  reset_num_quads();  
   test_function(); 
   reset_num_quads(); 
   test_call(); 
@@ -504,10 +504,25 @@ static void test_read_print(){
   ast_node read_node = create_ast_node(READ_STMT); 
   ast_node x = create_ast_node(IDENT); 
   x->value.string = "x"; 
-  ast_node print_node = create_ast_node(PRINT_STMT); 
+  ast_node print_node1 = create_ast_node(PRINT_STMT); 
+  ast_node string_lit = create_ast_node(STRING_LIT); 
+  string_lit->value.string = "hello"; 
+  ast_node print_node2 = create_ast_node(PRINT_STMT); 
+  ast_node plus = create_ast_node(OP_PLUS); 
+  ast_node three = create_ast_node(INT_LITERAL); 
+  three->value.int_value = 3; 
+  ast_node two = create_ast_node(INT_LITERAL); 
+  two->value.int_value = 2; 
 
   root->left_child = read_node; 
-  read_node->left_child = x; 
+  read_node->left_child = x;
+  read_node->right_sibling = print_node1; 
+  print_node1->left_child = string_lit; 
+  print_node1->right_sibling = print_node2; 
+  print_node2->left_child = plus; 
+
+  plus->left_child = three; 
+  three->right_sibling = two; 
 
   printf("\n\n********** read/write test **********\n\n");
   print_ast(root, 0);

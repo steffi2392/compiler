@@ -5,6 +5,8 @@ double b[4];
 int f(){
   b[0] = 5.2;
   a = -a; 
+
+  print "hello"; 
 }
 
 int main(){
