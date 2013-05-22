@@ -18,13 +18,13 @@ static void add_quad(ast_node node, quad q);
 static char * process_left(ast_node node); 
 static char * process_right(ast_node node); 
 static void build_code(ast_node node, quad new_quad, char * address1, char * address2, char * address3); 
+static char * print_opcode(int code); 
 static void process_root(ast_node node); 
 static void process_assign(ast_node node); 
 static void process_math(ast_node node); 
 static void process_negate(ast_node node); 
 static void process_inc(ast_node node, char * inc); 
 static void process_cmpd(ast_node node); 
-static void process_func(ast_node node); 
 static void process_if(ast_node node); 
 static void process_ifelse(ast_node node); 
 static void process_while(ast_node node); 
@@ -36,6 +36,7 @@ static void process_for(ast_node node);
 static void process_read(ast_node node); 
 static void process_return(ast_node node); 
 static void process_function(ast_node node); 
+static void process_params(ast_node node); 
 static void error(); 
 
 #define MAX_LEN 201
@@ -169,6 +170,9 @@ static void implement_node(ast_node node){
     else if (node->node_type == FUNCDEC){
       process_function(node); 
     }
+    else if (node->node_type == PARAMS){
+      process_params(node); 
+    }
     /*
     else if (node->node_type == CALL){
       process_call(node); 
@@ -235,14 +239,99 @@ static void add_quad(ast_node node, quad q){
 }
 
 void print_code(quad_list code){
+  char * opcode = print_opcode(code->first->opcode); 
   if (code->first != NULL)
-    printf("%d. (%d, %s, %s, %s)\n", code->first->num, code->first->opcode, code->first->address1, code->first->address2, code->first->address3); 
+    printf("%d. (%s, %s, %s, %s)\n", code->first->num, opcode, code->first->address1, code->first->address2, code->first->address3); 
   else
     printf("code->first is NULL inside print_code\n"); 
 
   quad curr; 
   for (curr = code->first->next; curr != code->first; curr = curr->next){
-    printf("%d. (%d, %s, %s, %s)\n", curr-> num, curr->opcode, curr->address1, curr->address2, curr->address3); 
+    opcode = print_opcode(curr->opcode); 
+    printf("%d. (%s, %s, %s, %s)\n", curr-> num, opcode, curr->address1, curr->address2, curr->address3); 
+  }
+}
+
+static char *  print_opcode(int code){
+  switch(code){
+  case 0: 
+    return "assn";
+    break; 
+  case 1: 
+    return "add";
+    break; 
+  case 2: 
+    return "sub"; 
+    break;
+  case 3: 
+    return "mult"; 
+    break; 
+  case 4: 
+    return "divide"; 
+    break; 
+  case 5: 
+    return "mod"; 
+    break; 
+  case 6: 
+    return "eq"; 
+    break; 
+  case 7: 
+    return "neq"; 
+    break; 
+  case 8: 
+    return "lt"; 
+    break;
+  case 9: 
+    return "leq";
+    break; 
+  case 10: 
+    return "gt"; 
+    break; 
+  case 11:
+    return "geq"; 
+    break; 
+  case 12: 
+    return "and"; 
+    break;
+  case 13: 
+    return "or"; 
+    break; 
+  case 14: 
+    return "not"; 
+    break; 
+  case 15: 
+    return "enter"; 
+    break; 
+  case 16: 
+    return "leave"; 
+    break; 
+  case 17: 
+    return "ifFalse"; 
+    break; 
+  case 18: 
+    return "jumpTo"; 
+    break; 
+  case 19: 
+    return "read"; 
+    break; 
+  case 20: 
+    return "print"; 
+    break; 
+  case 21: 
+    return "rtrn"; 
+    break; 
+  case 22: 
+    return "func_dec"; 
+    break; 
+  case 23: 
+    return "exit_sub"; 
+    break; 
+  case 24: 
+    return "push"; 
+    break; 
+  case 25: 
+    return "pop"; 
+    break; 
   }
 }
 
@@ -751,26 +840,53 @@ static void process_print(ast_node node){
   add_quad(node, print_quad); 
   }*/ 
 
-/* builds the code of a function; finds its compound and takes that code */
-/* THIS IS VERY UNFINISHED - it's more complicated than this */ 
+/* builds the code of a function; 
+ * 1. Function declaration
+ * 2. Code of its children
+ */ 
 static void process_function(ast_node node){
-  // the 3rd child of a funcdec node is the compound
-  ast_node cmpd = node->left_child->right_sibling->right_sibling->right_sibling; 
+  // create a quad with address1 = type and address2 = name
+  quad func_dec_node = create_quad(func_dec);
+  char * type; 
 
-  // check to make sure everything is ok, then builds its code (doesn't add new code)
-  if (cmpd->node_type == CMPD){
-    build_code(node, NULL, NULL, NULL, NULL); 
-    // then somehow fill in the location of the node to be the loc of whatever it returned
+  if (node->left_child->node_type == INT_TYPE){
+    type = "int"; 
   }
-  else {
-    error("process_func");
-  } 
-
-  // the location that the value is stored in is wherever the return value is stored!
-  node->location = NULL; 
+  else if (node->left_child->node_type == DOUBLE_TYPE){
+    type = "double"; 
+  }
+  else if (node->left_child->node_type == VOID_TYPE){
+    type = "void"; 
+  }
   
+  char * name = node->left_child->right_sibling->value.string; 
+  func_dec_node->address1 = type; 
+  func_dec_node->address2 = name;
+  add_quad(node, func_dec_node); 
+
+  build_code(node, NULL, NULL, NULL, NULL); 
+  
+  // leave subroutine (return addr will be in a register)
+  quad exit_sub_quad = create_quad(exit_sub);
+  add_quad(node, exit_sub_quad); 
 }
 
+/* pop each value off the stack that corresponds with a parameter 
+ * and assign the value to said parameter 
+ */ 
+static void process_params(ast_node node){
+  ast_node param = node->left_child; 
+  while (param != NULL){
+    quad pop_quad = create_quad(pop); 
+    pop_quad->address1 = new_address();
+    add_quad(node, pop_quad); 
+
+    quad assign = create_quad(assn);
+    assign->address1 = param->value.string; 
+    assign->address2 = pop_quad->address1; 
+    add_quad(node, assign); 
+  }
+}
 
 /* processes a call by generating code for the function it's calling. 
  * Gets the function by looking it up in the symbol table. 
