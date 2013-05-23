@@ -24,8 +24,11 @@ int main(){
   if (parseError)
     fprintf(stderr, "There was an error when forming the tree - it may be weird.\n"); 
 
-  if (haveRoot == 0)
+  if (haveRoot == 0){
     print_ast(root, 0);
+    generate_traverse(root); 
+    print_code(root->code); 
+  }
 
   return 0; 
 }

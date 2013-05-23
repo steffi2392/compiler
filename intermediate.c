@@ -936,8 +936,14 @@ static void process_params(ast_node node){
 static void process_vardec(ast_node node){
   if (node->left_child != NULL){
     quad vardec_quad = create_quad(vardec); 
-    vardec_quad->address1 = node->left_child->value.string; 
+    vardec_quad->address2 = node->left_child->value.string;
     
+    // get the data type
+    if (node->node_type == INT_TYPE)
+      vardec_quad->address1 = "int"; 
+    else if (node->node_type == DOUBLE_TYPE)
+      vardec_quad->address1 = "double"; 
+
     // set the location of the int_type or double_type quad to the var name
     node->location = node->left_child->value.string; 
 
@@ -985,18 +991,27 @@ static void process_root(ast_node node){
   }
 
   // 2. find the main funcdec and add its code
-  // START HERE!!!!!
-  // YOU NEED TO COMPARE THE NAME OF THE FUNCTION WHICH IS IN ITS 2ND CHILD
   ast_node first_funcdec = curr;
   ast_node main; 
-  for (main = first_funcdec; main != NULL && strcmp(main->value.string, "main") != 0; main = main->right_sibling); 
   
+  main = first_funcdec; 
+  
+  char * name; 
+  if (main != NULL)
+    name = main->left_child->right_sibling->value.string; 
+  
+  while (main != NULL && strcmp(name, "main") != 0){
+    main = main->right_sibling; 
+    name = main->left_child->right_sibling->value.string; 
+  }
+
   if (main!= NULL)
     add_quad_list(node, main->code); 
 
   // 3. add the code for all the other functions
   for (curr = first_funcdec; curr != NULL; curr = curr->right_sibling){
-    if (strcmp(curr->value.string, "main") != 0){
+    name = curr->left_child->right_sibling->value.string; 
+    if (strcmp(name, "main") != 0){
       add_quad_list(node, curr->code); 
     }
   }

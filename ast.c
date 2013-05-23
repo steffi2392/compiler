@@ -59,38 +59,26 @@ static struct token_lookup token_table[] = {
   {"INTLIT", INT_LITERAL },
   {"DOUBLELIT", DOUBLE_LITERAL },
   {"PARAMETERS", PARAMS},
-  {"ARGS", ARGS},
   {"STRING",STRING_LIT },
   {"START", FOR_STRT},
   {"CONDITION", FOR_COND},
   {"UPDATE", FOR_UPDT},
+  {"ARGS", ARGS},
   { NULL, 0 }
 };
 
 /* Create a node with a given token type and return a pointer to the
    node. */
-ast_node create_ast_node(ast_node_type node_type) {
+ast_node create_ast_node(ast_node_type node_type, int line_number) {
   ast_node new_node = malloc(sizeof(struct ast_node_struct));
   new_node->node_type = node_type;
   new_node->left_child = new_node->right_sibling = NULL;
-  new_node->isVar = 1; 
-  new_node->code = create_quad_list();
-  new_node->type = NULL; 
-  new_node->location = NULL; 
-  new_node->value.string = NULL; 
-  return new_node;
-}
+  new_node->type = Void;
+  new_node->line_number = line_number;
 
-void destroy_ast_node(ast_node node){
-  if (node->code != NULL)
-    destroy_quad_list(node->code);
-  if (node->type != NULL)
-    free(node->type); 
-  if (node->location != NULL)
-    free(node->location); 
-  if (node->value.string != NULL)
-    free(node->value.string); 
-  free(node); 
+  new_node->code = create_quad_list(); 
+  new_node->location = NULL; 
+  return new_node;
 }
 
 /* Print the contents of a subtree of an abstract syntax tree, given
