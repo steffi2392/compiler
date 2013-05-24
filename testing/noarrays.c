@@ -2,7 +2,7 @@ int a;
 double b; 
 
 int before(int x, int y){
-  f(); 
+  x = f() + 3; 
   return x + y; 
 }
 

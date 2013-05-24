@@ -3,8 +3,8 @@ int a;
 double b[4];
 
 int f(){
-  b[0] = 5.2;
-  a = -a; 
+  b[2] = 5.5; 
+  //  a = b[3] + 5; 
 
   print "hello"; 
 }

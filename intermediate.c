@@ -1,4 +1,4 @@
- /* intermediate.c
+/* intermediate.c
  * generates intermediate code given an AST
  */ 
 
@@ -20,7 +20,6 @@ static void add_quad_to_beginning(ast_node node, quad q);
 static char * process_left(ast_node node); 
 static char * process_right(ast_node node); 
 static void build_code(ast_node node, quad new_quad, char * address1, char * address2, char * address3); 
-static char * print_opcode(int code); 
 static void process_assign(ast_node node); 
 static void process_math(ast_node node); 
 static void process_negate(ast_node node); 
@@ -42,6 +41,7 @@ static void process_params(ast_node node);
 static void process_vardec(ast_node node); 
 static void process_call(ast_node node); 
 static void process_id(ast_node node); 
+static void process_array(ast_node node); 
 static void process_root(ast_node node); 
 static void error(); 
 
@@ -49,6 +49,14 @@ static void error();
 
 int num_addresses = 0; 
 int num_quads = 0; 
+
+// used for printing code - converts opcode enum to its string
+static char* opcode_table[] = {"assn", "add", "sub", "mult", "divide", 
+			       "mod", "eq", "neq", "lt", "leq", 
+			       "gt", "geq", "and", "or", "not", 
+			       "enter", "leave", "ifFalse", "jumpTo", "read", 
+			       "print", "rtrn", "get_rtrn", "func_dec", "goto_sub", 
+			       "exit_sub", "push", "pop", "vardec", "array"}; 
 
 /* create a quad with a given opcode and return a pointer 
    to it.  Initializes all addresses to NULL */
@@ -191,6 +199,9 @@ static void implement_node(ast_node node){
     else if (node->node_type == IDENT){
       process_id(node); 
     } 
+    else if (node->node_type == ARRAY){
+      process_array(node); 
+    }
   }
 }
 
@@ -270,105 +281,14 @@ static void add_quad_to_beginning(ast_node node, quad q){
 }
 
 void print_code(quad_list code){
-  char * opcode = print_opcode(code->first->opcode); 
   if (code->first != NULL)
-    printf("%d. (%s, %s, %s, %s)\n", code->first->num, opcode, code->first->address1, code->first->address2, code->first->address3); 
+    printf("%d. (%s, %s, %s, %s)\n", code->first->num, opcode_table[code->first->opcode], code->first->address1, code->first->address2, code->first->address3); 
   else
     printf("code->first is NULL inside print_code\n"); 
 
   quad curr; 
-  for (curr = code->first->next; curr != code->first; curr = curr->next){
-    opcode = print_opcode(curr->opcode); 
-    printf("%d. (%s, %s, %s, %s)\n", curr-> num, opcode, curr->address1, curr->address2, curr->address3); 
-  }
-}
-
-static char *  print_opcode(int code){
-  switch(code){
-  case 0: 
-    return "assn";
-    break; 
-  case 1: 
-    return "add";
-    break; 
-  case 2: 
-    return "sub"; 
-    break;
-  case 3: 
-    return "mult"; 
-    break; 
-  case 4: 
-    return "divide"; 
-    break; 
-  case 5: 
-    return "mod"; 
-    break; 
-  case 6: 
-    return "eq"; 
-    break; 
-  case 7: 
-    return "neq"; 
-    break; 
-  case 8: 
-    return "lt"; 
-    break;
-  case 9: 
-    return "leq";
-    break; 
-  case 10: 
-    return "gt"; 
-    break; 
-  case 11:
-    return "geq"; 
-    break; 
-  case 12: 
-    return "and"; 
-    break;
-  case 13: 
-    return "or"; 
-    break; 
-  case 14: 
-    return "not"; 
-    break; 
-  case 15: 
-    return "enter"; 
-    break; 
-  case 16: 
-    return "leave"; 
-    break; 
-  case 17: 
-    return "ifFalse"; 
-    break; 
-  case 18: 
-    return "jumpTo"; 
-    break; 
-  case 19: 
-    return "read"; 
-    break; 
-  case 20: 
-    return "print"; 
-    break; 
-  case 21: 
-    return "rtrn"; 
-    break; 
-  case 22: 
-    return "func_dec"; 
-    break; 
-  case 23: 
-    return "goto_sub"; 
-    break; 
-  case 24: 
-    return "exit_sub"; 
-    break; 
-  case 25: 
-    return "push"; 
-    break; 
-  case 26: 
-    return "pop"; 
-    break; 
-  case 27: 
-    return "vardec"; 
-    break; 
+  for (curr = code->first->next; curr != code->first; curr = curr->next){ 
+    printf("%d. (%s, %s, %s, %s)\n", curr-> num, opcode_table[curr->opcode], curr->address1, curr->address2, curr->address3); 
   }
 }
 
@@ -394,6 +314,20 @@ static char * process_left(ast_node node){
   else if (node->left_child != NULL && node->left_child->node_type == STRING_LIT){
     left = node->left_child->value.string; 
   }
+  // JUST ADDED
+  /*  else if (node->left_child != NULL && node->left_child->node_type == ARRAY){
+    quad array_quad = create_quad(array);
+    
+    // where you'll put value of array once you look it up
+    array_quad->address1 = new_address(); 
+
+    array_quad->address2 = process_left(node->left_child); 
+    array_quad->address3 = process_right(node->left_child); 
+    add_quad(node, array_quad); 
+    node->left_child->location = array_quad->address1; 
+
+    left = array_quad->address1;  
+    }*/ 
   else if (node->left_child != NULL && node->left_child->location != NULL){
     left = strdup(node->left_child->location);
   }
@@ -420,6 +354,20 @@ static char * process_right(ast_node node){
     snprintf(buffer, MAX_LEN,"%f", double_lit);
     right = strdup(buffer);
   }
+  // JUST ADDED     
+  /* else if (node->left_child != NULL && node->left_child->node_type == ARRAY){
+    quad array_quad = create_quad(array);
+
+    // where you'll put value of array once you look it up
+    array_quad->address1 = new_address();
+
+    array_quad->address2 = process_left(right_child);
+    array_quad->address3 = process_right(right_child);
+    add_quad(node, array_quad);
+    right_child->location = array_quad->address1; 
+
+    right = array_quad->address1;
+    }*/
   else if (right_child != NULL){
     right = strdup(right_child->location);
   }
@@ -935,28 +883,41 @@ static void process_params(ast_node node){
 // of a function. 
 static void process_vardec(ast_node node){
   if (node->left_child != NULL){
-    quad vardec_quad = create_quad(vardec); 
-    vardec_quad->address2 = node->left_child->value.string;
-    
+    quad vardec_quad = create_quad(vardec);
+
     // get the data type
     if (node->node_type == INT_TYPE)
       vardec_quad->address1 = "int"; 
     else if (node->node_type == DOUBLE_TYPE)
       vardec_quad->address1 = "double"; 
 
-    // set the location of the int_type or double_type quad to the var name
-    node->location = node->left_child->value.string; 
+    if (node->left_child->node_type != ARRAY){
+      vardec_quad->address2 = node->left_child->value.string; 
+    }
 
-    add_quad(node, vardec_quad); 
+    // process array declaration                                    
+    else if (node->left_child->node_type == ARRAY){
+      // get the size of the array      
+      vardec_quad->address3 = process_right(node->left_child);
+
+      // get the name of the array     
+      vardec_quad->address2 = process_left(node->left_child);
+    }
+
+    if (vardec_quad->address2 != NULL)
+      node->location = strdup(vardec_quad->address2);
+ 
+    add_quad(node, vardec_quad);     
   }
 }
 
 /* processes a call 
  * 1. push the params onto the stack
  * 2. goto_sub the function (location will be stored in symbol table maybe?) 
+ * 3. get the return value (will be in a register) 
  */ 
 static void process_call(ast_node node){
-  // push the params onto the stack in reverse order
+  // 1. push the params onto the stack in reverse order
   ast_node args = node->left_child->right_sibling; 
 
   ast_node curr; 
@@ -965,17 +926,34 @@ static void process_call(ast_node node){
     push_quad->address1 = curr->location; 
     add_quad_to_beginning(node, push_quad); 
     add_quad_list_to_beginning(node, curr->code); 
-    //add_quad(node, push_quad); 
-    //add_quad_list(node, curr->code); 
   }
 
+  // 2. jump to the function's subroutine
   quad goto_sub_quad = create_quad(goto_sub); 
   goto_sub_quad->address1 = node->left_child->value.string; 
   add_quad(node, goto_sub_quad); 
+
+  // 3. get the return value 
+  quad get_return = create_quad(get_rtrn); 
+  get_return->address1 = new_address(); 
+  node->location = get_return->address1; 
+  add_quad(node, get_return); 
 } 
 
 static void process_id(ast_node node){
   node->location = node->value.string; 
+}
+
+static void process_array(ast_node node){
+  quad array_quad = create_quad(array);
+
+  // where you'll put value of array once you look it up                                                                         
+  array_quad->address1 = new_address();
+
+  array_quad->address2 = process_left(node);
+  array_quad->address3 = process_right(node);
+  add_quad(node, array_quad);
+  node->location = array_quad->address1;
 }
 
 /* Process the root
