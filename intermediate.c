@@ -51,12 +51,12 @@ int num_addresses = 0;
 int num_quads = 0; 
 
 // used for printing code - converts opcode enum to its string
-static char* opcode_table[] = {"assn", "add", "sub", "mult", "divide", 
+static char* opcode_table[] = {"assn", "array_assn", "add", "sub", "mult", "divide", 
 			       "mod", "eq", "neq", "lt", "leq", 
 			       "gt", "geq", "and", "or", "not", 
 			       "enter", "leave", "ifFalse", "jumpTo", "read", 
 			       "print", "rtrn", "get_rtrn", "func_dec", "goto_sub", 
-			       "exit_sub", "push", "pop", "vardec", "array"}; 
+			       "exit_sub", "push", "pop", "vardec", "array_lkup"}; 
 
 /* create a quad with a given opcode and return a pointer 
    to it.  Initializes all addresses to NULL */
@@ -314,20 +314,6 @@ static char * process_left(ast_node node){
   else if (node->left_child != NULL && node->left_child->node_type == STRING_LIT){
     left = node->left_child->value.string; 
   }
-  // JUST ADDED
-  /*  else if (node->left_child != NULL && node->left_child->node_type == ARRAY){
-    quad array_quad = create_quad(array);
-    
-    // where you'll put value of array once you look it up
-    array_quad->address1 = new_address(); 
-
-    array_quad->address2 = process_left(node->left_child); 
-    array_quad->address3 = process_right(node->left_child); 
-    add_quad(node, array_quad); 
-    node->left_child->location = array_quad->address1; 
-
-    left = array_quad->address1;  
-    }*/ 
   else if (node->left_child != NULL && node->left_child->location != NULL){
     left = strdup(node->left_child->location);
   }
@@ -354,20 +340,6 @@ static char * process_right(ast_node node){
     snprintf(buffer, MAX_LEN,"%f", double_lit);
     right = strdup(buffer);
   }
-  // JUST ADDED     
-  /* else if (node->left_child != NULL && node->left_child->node_type == ARRAY){
-    quad array_quad = create_quad(array);
-
-    // where you'll put value of array once you look it up
-    array_quad->address1 = new_address();
-
-    array_quad->address2 = process_left(right_child);
-    array_quad->address3 = process_right(right_child);
-    add_quad(node, array_quad);
-    right_child->location = array_quad->address1; 
-
-    right = array_quad->address1;
-    }*/
   else if (right_child != NULL){
     right = strdup(right_child->location);
   }
@@ -469,25 +441,41 @@ static void build_code(ast_node node, quad new_quad, char * address1, char * add
 }
 
 static void process_assign(ast_node node){
-  quad new_quad = create_quad(assn);
-  // get location to being assigned
-  char * target = NULL;
-  if (node->left_child != NULL && node->left_child->node_type == IDENT){
-    target = strdup(node->left_child->value.string); // DO I NEED TO DUPLICATE THE STRING? 
-  }
-  else if (node->left_child != NULL){
-    target = strdup(node->left_child->location);
-  }
+  char * target = NULL; 
+  // deal with arrays a little differently
+  if (node->left_child->node_type == ARRAY){
+    quad array_quad = create_quad(array_assn); 
+    ast_node array = node->left_child; 
 
-  // get location of value               
-  char * value = process_right(node);
-
-  if (target != NULL && value != NULL){
-    build_code(node, new_quad, target, value, NULL);
+    // (array_assn, array, index, value)
+    array_quad->address1 = process_left(array); 
+    array_quad->address2 = process_right(array); ; 
+    array_quad->address3 = process_right(node); 
+    
+    // add code to calculuate right hand side, then to find array location
+    add_quad_list(node, node->left_child->right_sibling->code); 
+    add_quad(node, array_quad); 
   }
-  else{
-    destroy_quad(new_quad);
-    error("process_assign");
+  else {
+    quad new_quad = create_quad(assn);
+    // get location to being assigned
+    if (node->left_child != NULL && node->left_child->node_type == IDENT){
+      target = strdup(node->left_child->value.string); // DO I NEED TO DUPLICATE THE STRING? 
+    }
+    else if (node->left_child != NULL){
+      target = strdup(node->left_child->location);
+    }
+
+    // get location of value               
+    char * value = process_right(node);
+
+    if (target != NULL && value != NULL){
+      build_code(node, new_quad, target, value, NULL);
+    }
+    else{
+      destroy_quad(new_quad);
+      error("process_assign");
+    }
   }
 }
 
@@ -945,7 +933,7 @@ static void process_id(ast_node node){
 }
 
 static void process_array(ast_node node){
-  quad array_quad = create_quad(array);
+  quad array_quad = create_quad(array_lkup);
 
   // where you'll put value of array once you look it up                                                                         
   array_quad->address1 = new_address();

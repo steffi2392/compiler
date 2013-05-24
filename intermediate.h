@@ -12,10 +12,10 @@
 //#import "ast.h"
 
 /* opcodes for the quads */ 
-typedef enum {assn, add, sub, mult, divide, mod, eq, neq, lt, leq, gt, 
+typedef enum {assn, array_assn, add, sub, mult, divide, mod, eq, neq, lt, leq, gt, 
 	      geq, and, or, not, enter, leave, ifFalse, jumpTo, read, print, 
               rtrn, get_rtrn, func_dec, goto_sub, exit_sub, push, pop, vardec, 
-              array} opcode_type; 
+              array_lkup} opcode_type; 
 
 /* Structure for a quad. Knows its opcode and up to 3 addresses - these are strings
    which can then be looked up in the symbol table. It also knows its next and
