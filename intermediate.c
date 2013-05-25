@@ -56,7 +56,8 @@ static char* opcode_table[] = {"assn", "array_assn", "add", "sub", "mult", "divi
 			       "gt", "geq", "and", "or", "not", 
 			       "enter", "leave", "ifFalse", "jumpTo", "read", 
 			       "print", "rtrn", "get_rtrn", "func_dec", "goto_sub", 
-			       "exit_sub", "push", "pop", "vardec", "array_lkup"}; 
+			       "exit_sub", "push", "pop", "vardec", "array_lkup", 
+                               "halt"}; 
 
 /* create a quad with a given opcode and return a pointer 
    to it.  Initializes all addresses to NULL */
@@ -114,8 +115,6 @@ void generate_traverse(ast_node node){
   if (node != NULL){
     ast_node child = node->left_child; 
     while (child != NULL){
-      // generate code to prepare for child
-
       generate_traverse(child); 
       child = child->right_sibling; 
     } 
@@ -205,6 +204,7 @@ static void implement_node(ast_node node){
   }
 }
 
+// Gives a new address (ex: t5)
 static char * new_address(){
   char * buffer = malloc(10); 
   sprintf(buffer, "t%d", num_addresses); 
@@ -292,8 +292,10 @@ void print_code(quad_list code){
   }
 }
 
-// processes the left child of a node (if it's an ID, int_literal, or double_literal)
-// or if it's a declaration or if it has a location
+/* processes the left child of a node 
+ * 1. If it's an ID, int_literal, or double_literal, it gives you the value.
+ * 2. If it has a location it gives you the location
+ */
 static char * process_left(ast_node node){
   char * left = NULL; 
   if (node->left_child != NULL && node->left_child->node_type == IDENT){
@@ -320,7 +322,10 @@ static char * process_left(ast_node node){
   return left; 
 }
 
-// processes the right child of a node (if it's an ID, int_literal, or double_literal)
+/* processes the left child of a node     
+ * 1. If it's an ID, int_literal, or double_literal, it gives you the value. 
+ * 2. If it has a location it gives you the location  
+ */ 
 static char * process_right(ast_node node){
   // get right argument                                                                                                  
   ast_node right_child = node->left_child->right_sibling;
@@ -346,7 +351,9 @@ static char * process_right(ast_node node){
   return right; 
 }
 
-// handles mathy operations (all the same pattern)
+/* Handles mathy operations (all the same pattern)
+ * Format: (operation, target location, left argument, right argument)
+ */ 
 static void process_math(ast_node node){
   quad new_quad = NULL;   
   if (node->node_type == OP_PLUS){
@@ -431,15 +438,9 @@ static void build_code(ast_node node, quad new_quad, char * address1, char * add
 
     add_quad(node, new_quad); 
   }
-  // get the code from the children (that exist) and then add the new line
-  /* if (node->left_child != NULL){
-    add_quad_list(node, node->left_child->code); 
-  }
-  if (node->left_child->right_sibling != NULL){
-    add_quad_list(node, node->left_child->right_sibling->code); 
-    }*/ 
 }
 
+// Format: (assn, target location, value location)
 static void process_assign(ast_node node){
   char * target = NULL; 
   // deal with arrays a little differently
@@ -785,6 +786,7 @@ static void process_for(ast_node node){
   if_false->address2 = buffer; 
 }
 
+// (read, location, NULL, NULL)
 static void process_read(ast_node node){
   quad read_quad = create_quad(read); 
   char * left = process_left(node); 
@@ -793,6 +795,7 @@ static void process_read(ast_node node){
   add_quad(node, read_quad); 
 }
 
+// (rtrn, location, NULL, NULL); 
 static void process_return(ast_node node){
   quad return_quad = create_quad(rtrn); 
   char * left = process_left(node); 
@@ -803,7 +806,7 @@ static void process_return(ast_node node){
   add_quad(node, return_quad); 
 }
 
-
+// (print, location or string lit, NULL, NULL)
 static void process_print(ast_node node){
   quad print_quad = create_quad(print); 
   char *left = process_left(node); 
@@ -814,7 +817,7 @@ static void process_print(ast_node node){
 } 
 
 /* builds the code of a function; 
- * 1. Function declaration
+ * 1. Function declaration: (func_dec, type, name, NULL)
  * 2. Code of its children
  */ 
 static void process_function(ast_node node){
@@ -866,9 +869,11 @@ static void process_params(ast_node node){
   }
 }
 
-// declare a variable
-// This only happens if it has a left child (otherwise it's saying the type
-// of a function. 
+/* declare a variable
+ * This only happens if it has a left child (otherwise it's saying the type
+ * of a function.
+ * Format: (vardec, type, name, NULL)
+ */  
 static void process_vardec(ast_node node){
   if (node->left_child != NULL){
     quad vardec_quad = create_quad(vardec);
@@ -932,6 +937,7 @@ static void process_id(ast_node node){
   node->location = node->value.string; 
 }
 
+// Format: (array_lkup, name, index, NULL)
 static void process_array(ast_node node){
   quad array_quad = create_quad(array_lkup);
 
@@ -947,7 +953,8 @@ static void process_array(ast_node node){
 /* Process the root
  * 1. generate code for global vars and such (all before funcdecs)
  * 2. code for main function (if there is one)
- * 3. code for all other functions
+ * 3. HALT quad
+ * 4. code for all other functions
  */ 
 static void process_root(ast_node node){
   // 1. generate code for everything before the function declarations
@@ -974,7 +981,11 @@ static void process_root(ast_node node){
   if (main!= NULL)
     add_quad_list(node, main->code); 
 
-  // 3. add the code for all the other functions
+  // 3. HALT quad
+  quad halt_quad = create_quad(halt); 
+  add_quad(node, halt_quad); 
+
+  // 4. add the code for all the other functions
   for (curr = first_funcdec; curr != NULL; curr = curr->right_sibling){
     name = curr->left_child->right_sibling->value.string; 
     if (strcmp(name, "main") != 0){

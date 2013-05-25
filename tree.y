@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "ast.h"
-#include "table.h" 
+#include "table.h"
 
 #define YYSTYPE ast_node
 #define YYDEBUG 1
