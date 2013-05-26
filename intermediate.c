@@ -440,7 +440,7 @@ static void build_code(ast_node node, quad new_quad, char * address1, char * add
   }
 }
 
-// Format: (assn, target location, value location)
+// Format: (assn, target location, value location, null)
 static void process_assign(ast_node node){
   char * target = NULL; 
   // deal with arrays a little differently
