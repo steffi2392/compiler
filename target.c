@@ -1,4 +1,4 @@
-/* target.c
+ /* target.c
  * Makes target code from quads
  */ 
 
@@ -6,55 +6,65 @@
 #import <stdio.h>
 #import <string.h>
 #import "intermediate.h"
+#import "symtab.h"
 
-#define MAX_BUFFER 200; 
+#define MAX_BUFFER 200 
 
 /* prototypes */
 static void process_global(quad q); 
 static void process_assignment(quad q); 
-static void process_funcdec(quad q); 
+static quad process_funcdec(quad q); 
 static void process_enter(quad q); 
 static void process_leave(quad q); 
-static void process_pardec(quad q, int rtrn_val_size); 
+static quad process_pardec(quad q, int rtrn_val_size);
 static void process_return(quad q, int rtrn_val_size); 
 static void process_add(quad q); 
-static void process_exitsub(quad q); 
+static void process_exitsub(quad q, int rtrn_type_size); 
 static void process_push(quad q); 
 static void process_call(quad q); 
-static void process_get_rtrn(quad q); 
+static void process_get_rtrn(quad q, int offset); 
 static void write(char * string); 
 static void ro_instruction(char *opcode, int r, int s, int t); 
 static void rm_instruction(char *opcode, int r, int d, int s); 
 static void directive(char *type, int loc, int value); 
 static void fill(int loc, int count, int val); 
 static char * process_temp(char * init_temp); 
+static void increment_reg(int reg, int offset); 
+static int stoi(char *string); 
 
 /* globals */ 
 int memory_pointer = 0; 
 int program_counter = 0; 
 int main_loc; 
+symboltable symtab; 
 
 /* Makes target code from a list of quads */  
 void generate_target(quad_list code){
   //printf("LDC 4, 4(0)\n"); // initial mem[] location
   quad curr; 
-
+  symtab = create_symboltable(); 
+ 
   // process each quad
-  quad curr = code->first; 
-  while (curr != NULL){
+  curr = code->first; 
+  if (curr == NULL){
+    printf("first quad is null\n"); 
+    return; 
+  }
+  
+  do {
     switch (curr->opcode){
     case vardec:
       process_global(curr);
       curr = curr->next; 
       break; 
-    case funcdec: 
+    case func_dec: 
       process_funcdec(curr); 
       break; 
     case halt: 
       ro_instruction("HALT", 0, 0, 0); 
       break; 
-    }
-  }
+    } }while (curr != code->first); 
+  
 }
 
 // this could probably be recycled to handle normal vardecs as well: just pass in the offset
@@ -65,14 +75,15 @@ static void process_global(quad q){
   if (strcmp(q->address1, "int") == 0){
     type = 0; 
   }
-  else 
+  else{ 
     type = 1; 
+  }
 
   // Not an array
   if (q->address3 == NULL){
-    symtab node = insert_into_symboltable(symtab, q->address2, type, 1, 0);
+    symnode node = insert_into_symboltable(symtab, q->address2, type, 1, 0);
     node->offset = memory_pointer;
-    node->
+    //    node->
 
       if (type == 0){
 	directive(".INT", memory_pointer, 0); 
@@ -105,25 +116,25 @@ static void process_global(quad q){
     }*/ 
 }
 
+// INCOMPLETE FINISH MEEEEEE
 // ADD $t1 to symbol table - not just t1!!!
-static void process_assignment(quad q, char * func){
+static void process_assignment(quad q){
   char * target = q->address1; 
-  char buffer[MAX_LENGTH]; 
   int level, val_lev, reg; 
   symnode node = lookup_in_symboltable(symtab, target, Var, &level); 
   if (node != NULL){
-    symnode value = lookup_in_symboltable(symtab, q->address2, 1, val_lev); 
+    symnode value = lookup_in_symboltable(symtab, q->address2, 1, &val_lev); 
     if (value != NULL){
       reg = (val_lev == 0) ? 4 : 5; 
       rm_instruction("LD", 0, value->offset, reg); 
     }
     else {
-      int constant = stoi(value);
+      int constant = stoi(q->address2);
       rm_instruction("LDC", 0, constant, 0); 
     }
 
     int reg = (level == 0) ? 4 : 5; // either global offset or FP 
-    rm_instruction("ST", node->offset, reg); 
+    rm_instruction("ST", 0, node->offset, reg); 
   }
   // Storing into a temp var THIS IS WRONG FIX ME
   else {
@@ -135,32 +146,33 @@ static void process_assignment(quad q, char * func){
     increment_reg(6, offset_increment); 
     
     // get the value you're storing
-    symnode value = lookup_in_symboltable(symtab, q->address2, Var, val_lev); 
+    symnode value = lookup_in_symboltable(symtab, q->address2, Var, &val_lev); 
     if (value != NULL){
       reg = (val_lev == 0) ? 4 : 5; // what register am I taking offset of? 
       rm_instruction("LD", 0, value->offset, reg); 
     }
     else { // it's a constant
-      int constant = stoi(value); 
+      int constant = stoi(q->address2); 
       rm_instruction("LDC", 0, constant, 0); 
     }
 
-    rm_instruction("ST", node->offset, 5); 
+    rm_instruction("ST", 0, node->offset, 5); 
   }
 }
 
-/* When we hit the function declaration, R6 is pointing to the first parameter 
+/* When we hit the function declaration, R6 is pointing to the first parameter
+ * NEED A WAY TO REPORT RETURN TYPE AND PUT IN SYMBOL TABLE 
  */ 
-static void process_funcdec(quad q){
+static quad process_funcdec(quad q){
   int level; 
-  symtab->node = insert_into_symboltable(symtab, q->address2, 0, &level); 
+  symnode node = insert_into_symboltable(symtab, q->address2, 0, 0, 0); 
   node->offset = program_counter; 
   
   // make space for return value
   // calculate the offset, based on what type the function returns
   //rm_instruction("LDC", 0, offset, 0); 
   //ro_instruction("ADD" 6, 6, 0); 
-  increment_reg(6, offset); 
+  increment_reg(6, node->offset); 
 
   // store the old R5 (FP); 
   // "increment R6 by 4" 
@@ -172,19 +184,20 @@ static void process_funcdec(quad q){
   ro_instruction("ADD", 5, 6, 0); 
 
   q = q->next; 
-  while (q != NULL){
+  while (q->opcode != exit_sub){
     // HUGE CASE STATEMENT
   }
+  return q->next; 
 }
 
 // process enter, just enter new scope in symbol table
 static void process_enter(quad q){
-  enter_scope(symboltable symtab); 
+  enter_scope(symtab); 
 }
 
 // exit the scope
 static void process_leave(quad q){
-  leave_scope(symboltable symtab); 
+  leave_scope(symtab); 
 }
 
 /* Handle all the pardecs: (pardec, int, x, NULL)
@@ -226,8 +239,6 @@ static void process_return(quad q, int rtrn_val_size){
  *  2. set $t's offset off of R5
  */ 
 static void process_add(quad q){
-  char buffer[MAX_BUFFER]; 
-
   // type of t1 is the type of x and y
   int level; 
   symnode node = lookup_in_symboltable(symtab, q->address2, Var, &level); 
@@ -270,7 +281,7 @@ static void process_exitsub(quad q, int rtrn_type_size){
 // just do this one at a time
 static void process_push(quad q){
   int level;
-  symnode node = lookup_in_symbol_table(symtab, q->address1, Var, level); 
+  symnode node = lookup_in_symboltable(symtab, q->address1, Var, &level); 
   int reg = (level == 0) ? 4 : 5; // local vs. global 
   int size = (node->data_type == Double) ? 8 : 4; 
   
@@ -285,12 +296,12 @@ static void process_push(quad q){
 static void process_call(quad q){
   // 1. find the function in symbol table, find its offset
   int level; 
-  symnode func_node = lookup_in_symboltable(symtab, q->address1, Function, ??, &level);  
+  symnode func_node = lookup_in_symboltable(symtab, q->address1, Function, &level);  
   int offset = func_node->offset; 
 
   // 2. where the program counter is now is where we eventually want to return to 
   // store value of R7 into R6 such that it goes the next command 
-  rm_instruction("LDC" 0, 3, 0); // maybe this value of 3 is +/- 1?? 
+  rm_instruction("LDC", 0, 3, 0); // maybe this value of 3 is +/- 1?? 
   ro_instruction("ADD", 0, 0, 7); 
   rm_instruction("ST", 0, 0, 6); 
 
@@ -341,7 +352,18 @@ static void fill(int loc, int count, int val){
 }
 
 static char * process_temp(char * init_temp){
-  char buffer[MAX_BUFFER];
-  snprinf(buffer, MAX_BUFFER,"$%s", init_temp);
+  char * buffer = malloc(MAX_BUFFER);
+  snprintf(buffer, MAX_BUFFER,"$%s", init_temp);
   return buffer; 
+}
+
+static void increment_reg(int reg, int offset){
+  rm_instruction("LDC", 0, offset, 0); 
+  ro_instruction("ADD", reg, reg, 0); 
+}
+
+static int stoi(char * string){
+  int i; 
+  sscanf(string, "%d", &i);
+  return i; 
 }

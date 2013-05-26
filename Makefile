@@ -8,8 +8,8 @@ tree: lex.yy.o tree.tab.o table.o  symtab.o ast.o intermediate.o tree_main.o
 generate: lex.yy.o tree.tab.o table.o  symtab.o ast.o intermediate.o generate.o
 	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o table.c  symtab.o ast.o intermediate.o generate.o
 
-target: lex.yy.o tree.tab.o table.o symtab.o ast.o intermediate.o target_main.o
-	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o table.o symtab.o ast.o intermediate.o target_main.o
+target: symtab.o ast.o intermediate.o target.o target_main.o
+	$(CC) -o $@ $(CFLAGS) symtab.o ast.o intermediate.o target.o target_main.o
 
 lex.yy.o: lex.yy.c
 	$(CC) -c $(CFLAGS) $<
