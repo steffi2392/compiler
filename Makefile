@@ -8,6 +8,9 @@ tree: lex.yy.o tree.tab.o table.o  symtab.o ast.o intermediate.o tree_main.o
 generate: lex.yy.o tree.tab.o table.o  symtab.o ast.o intermediate.o generate.o
 	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o table.c  symtab.o ast.o intermediate.o generate.o
 
+target: lex.yy.o tree.tab.o table.o symtab.o ast.o intermediate.o target_main.o
+	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o table.o symtab.o ast.o intermediate.o target_main.o
+
 lex.yy.o: lex.yy.c
 	$(CC) -c $(CFLAGS) $<
 
@@ -34,6 +37,9 @@ tree_main.o: tree_main.c
 #tree_main.o: generate_code.c
 	$(CC) -c $(CFLAGS) -o tree_main.o tree_main.c
 
+target_main.o: target_main.c
+	$(CC) -c $(CFLAGS) -o target_main.o target_main.c
+
 symtab.o: symtab.c
 	$(CC) -c $(CFLAGS) $<
 
@@ -41,6 +47,9 @@ typecheck.o: typecheck.c typecheck.h symtab.h
 	$(CC) -c $(CFLAGS) $<
 
 intermediate.o: intermediate.c intermediate.h
+	$(CC) -c $(CFLAGS) $<
+
+target.o: target.c target.h
 	$(CC) -c $(CFLAGS) $<
 
 parser:

@@ -56,8 +56,8 @@ static char* opcode_table[] = {"assn", "array_assn", "add", "sub", "mult", "divi
 			       "gt", "geq", "and", "or", "not", 
 			       "enter", "leave", "ifFalse", "jumpTo", "read", 
 			       "print", "rtrn", "get_rtrn", "func_dec", "goto_sub", 
-			       "exit_sub", "push", "pop", "vardec", "array_lkup", 
-                               "halt"}; 
+			       "exit_sub", "push", "pop", "vardec", "pardec", 
+			       "array_lkup", "halt"}; 
 
 /* create a quad with a given opcode and return a pointer 
    to it.  Initializes all addresses to NULL */
@@ -854,8 +854,12 @@ static void process_params(ast_node node){
   ast_node param = node->left_child; 
   while (param != NULL){
     // add the code for the variable declaration
+    param->code->first->opcode = pardec; 
     add_quad_list(node, param->code); 
+    
+    //    quad pardec_quad = create_quad(pardec); 
 
+    /*
     quad pop_quad = create_quad(pop); 
     pop_quad->address1 = new_address();
     add_quad(node, pop_quad); 
@@ -864,7 +868,7 @@ static void process_params(ast_node node){
     assign->address1 = param->left_child->value.string; 
     assign->address2 = pop_quad->address1; 
     add_quad(node, assign); 
-
+    */ 
     param = param->right_sibling; 
   }
 }

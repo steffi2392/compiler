@@ -10,7 +10,24 @@
 #define MAX_BUFFER 200; 
 
 /* prototypes */
+static void process_global(quad q); 
+static void process_assignment(quad q); 
+static void process_funcdec(quad q); 
+static void process_enter(quad q); 
+static void process_leave(quad q); 
+static void process_pardec(quad q, int rtrn_val_size); 
+static void process_return(quad q, int rtrn_val_size); 
+static void process_add(quad q); 
+static void process_exitsub(quad q); 
+static void process_push(quad q); 
+static void process_call(quad q); 
+static void process_get_rtrn(quad q); 
 static void write(char * string); 
+static void ro_instruction(char *opcode, int r, int s, int t); 
+static void rm_instruction(char *opcode, int r, int d, int s); 
+static void directive(char *type, int loc, int value); 
+static void fill(int loc, int count, int val); 
+static char * process_temp(char * init_temp); 
 
 /* globals */ 
 int memory_pointer = 0; 
@@ -89,11 +106,11 @@ static void process_global(quad q){
 }
 
 // ADD $t1 to symbol table - not just t1!!!
-static void process_assignment(quad q){
+static void process_assignment(quad q, char * func){
   char * target = q->address1; 
   char buffer[MAX_LENGTH]; 
   int level, val_lev, reg; 
-  symnode node = lookup_in_symboltable(symtab, target, 1, level); 
+  symnode node = lookup_in_symboltable(symtab, target, Var, &level); 
   if (node != NULL){
     symnode value = lookup_in_symboltable(symtab, q->address2, 1, val_lev); 
     if (value != NULL){
@@ -107,6 +124,28 @@ static void process_assignment(quad q){
 
     int reg = (level == 0) ? 4 : 5; // either global offset or FP 
     rm_instruction("ST", node->offset, reg); 
+  }
+  // Storing into a temp var THIS IS WRONG FIX ME
+  else {
+    symnode value_node = lookup_in_symboltable(symtab, q->address2, Var, &level); 
+    char * temp_var = process_temp(target); 
+    node = insert_into_symboltable(symtab, temp_var, Var, value_node->data_type, 0); 
+    
+    int offset_increment = (value_node->data_type == Int) ? 4 : 8; 
+    increment_reg(6, offset_increment); 
+    
+    // get the value you're storing
+    symnode value = lookup_in_symboltable(symtab, q->address2, Var, val_lev); 
+    if (value != NULL){
+      reg = (val_lev == 0) ? 4 : 5; // what register am I taking offset of? 
+      rm_instruction("LD", 0, value->offset, reg); 
+    }
+    else { // it's a constant
+      int constant = stoi(value); 
+      rm_instruction("LDC", 0, constant, 0); 
+    }
+
+    rm_instruction("ST", node->offset, 5); 
   }
 }
 
@@ -195,12 +234,10 @@ static void process_add(quad q){
   int offset = (node->data_type == Int) ? 4 : 8; 
 
   // load the constant of the offset into a register
-  snprintf(buffer, MAX_BUFFER, "LDC 0, %d(0)\n", offset);
-  write(buffer); 
+  rm_instruction("LDC", 0, offset, 0); 
 
   // increment R6 by that constant
-  snprintf(buffer, MAX_BUFFER, "ADD 6, 6, 0\n"); 
-  write(buffer); 
+  ro_instruction("ADD", 6, 6, 0); 
 
   // insert temp var into symtab and set its offset
   symnode new_node = insert_into_symboltable(symtab, q->address1, Var, node->data_type, 0); 
@@ -209,22 +246,20 @@ static void process_add(quad q){
 
 // ALWAYS PUT A SPACE FOR RETURN VALUE EVEN IF IT'S VOID
 static void process_exitsub(quad q, int rtrn_type_size){
-  char buffer[MAX_BUFFER]; 
 
   // 1. Make R6 point right above R5
-  write("LDA 6, -4(5)\n");  
+  rm_instruction("LDA", 6, -4, 5);  
 
   // 2. Set R5 to the contents of R6
-  write("LD 5, 0(6)\n");  
+  rm_instruction("LD", 5, 0, 6); 
 
   // 3. Move R6 up 1 word (subtract size of return type)
   rtrn_type_size = -1 * rtrn_type_size; 
-  snprintf(buffer, MAX_BUFFER, "LDC 0, %d(0)\n", rtrn_type_size); 
-  write(buffer); 
-  write("ADD 6, 6, 0\n"); 
+  rm_instruction("LDC", 0, rtrn_type_size, 0); 
+  ro_instruction("ADD", 6, 6, 0); 
 
   // 4. put the program counter back to where it should be
-  write("LD 7, -4(6)\n"); 
+  rm_instruction("LD", 7, -4, 6); 
 
   // WE DID IT HOORAY!
 }
@@ -234,29 +269,45 @@ static void process_exitsub(quad q, int rtrn_type_size){
 
 // just do this one at a time
 static void process_push(quad q){
+  int level;
+  symnode node = lookup_in_symbol_table(symtab, q->address1, Var, level); 
+  int reg = (level == 0) ? 4 : 5; // local vs. global 
+  int size = (node->data_type == Double) ? 8 : 4; 
   
+  rm_instruction("LD", 0, node->offset, reg); // load param into R0
+  rm_instruction("ST", 0, 0, 6); 
+  increment_reg(6, size); // increment SP 
 }
 
 // When you get here, the params have already been pushed, R6 is pointing to the last param
+// or maybe it's pointing to the spot right blow the last param? Think about this!!
+// HOW DO I KNOW A FUNCTION'S TYPE AT THIS POINT? Do I have to know it? 
 static void process_call(quad q){
   // 1. find the function in symbol table, find its offset
+  int level; 
+  symnode func_node = lookup_in_symboltable(symtab, q->address1, Function, ??, &level);  
+  int offset = func_node->offset; 
 
   // 2. where the program counter is now is where we eventually want to return to 
   // store value of R7 into R6 such that it goes the next command 
-  LDC R0, 3 // but maybe this value of 3 is wrong, off by 1?
-    ADD R0, 0, 7
-    ST 0, 0(6)
+  rm_instruction("LDC" 0, 3, 0); // maybe this value of 3 is +/- 1?? 
+  ro_instruction("ADD", 0, 0, 7); 
+  rm_instruction("ST", 0, 0, 6); 
 
   // 3. put that into memory
-    LDC (7), ^that number(0); <-- found in step 1;
+  //LDC (7), ^that number(0); <-- found in step 1;
+  rm_instruction("LDC", 7, offset, 0); 
 }
 
 // RETURN IS AT R6
-static void process_get_rtrn(quad q){
+static void process_get_rtrn(quad q, int offset){
   // 1. put whatever R6 is looking at into R0
   // LD 0, 0(6)
+  rm_instruction("LD", 0, 0, 6); 
 
   // 2. put R6 back to where it should be: R6 = R5 + current offset
+  rm_instruction("LDC", 1, offset, 0); 
+  ro_instruction("ADD", 6, 5, 1); 
 }
 
 // writes a string to a file
@@ -287,4 +338,10 @@ static void fill(int loc, int count, int val){
   char buffer[MAX_BUFFER]; 
   snprintf(buffer, MAX_BUFFER, ".FILL %d %d %d\n", loc, count, val); 
   write(buffer); 
+}
+
+static char * process_temp(char * init_temp){
+  char buffer[MAX_BUFFER];
+  snprinf(buffer, MAX_BUFFER,"$%s", init_temp);
+  return buffer; 
 }

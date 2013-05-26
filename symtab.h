@@ -8,7 +8,7 @@
 
 /* Node in a linked list within the symbol table. */
 
-typedef enum {Int, Double, Void} types;
+//typedef enum {Int, Double, Void} types;
 typedef enum {Function, Var, Array} id_type;
 
 typedef struct symnode *symnode;
