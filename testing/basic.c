@@ -3,6 +3,7 @@ int a;
 double b[4];
 
 int f(){
+
   b[2] = a + 3; 
   a = b[3] + 5; 
 
