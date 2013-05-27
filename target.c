@@ -23,7 +23,7 @@ static void process_float_math(quad q, int *offset_from_fp, char * operation);
 static void process_exitsub(quad q, int rtrn_type_size); 
 static void process_push(quad q); 
 static void process_call(quad q); 
-static void process_get_rtrn(quad q, int offset); 
+static void process_get_rtrn(quad q, int num_params, int rtrn_type); 
 static void write(char * string); 
 static void ro_instruction(char *opcode, int r, int s, int t, int override); 
 static void rm_instruction(char *opcode, int r, int d, int s, int override); 
@@ -40,9 +40,12 @@ int main_loc;
 int jump_to_main; 
 symboltable symtab; 
 
+FILE *file; 
+
 /* Makes target code from a list of quads */  
 void generate_target(quad_list code){
-  //printf("LDC 4, 4(0)\n"); // initial mem[] location
+  file = fopen("output.txt", "w"); 
+
   quad curr; 
   symtab = create_symboltable(); 
  
@@ -58,7 +61,7 @@ void generate_target(quad_list code){
   // process all the vardecs first
   // SOME OF THESE COULD BE ASSIGNMENTS FIX ME
   while (curr->opcode == vardec){
-    printf("process_global\n"); 
+    printf("process_vardec\n"); 
     process_global(curr); 
     curr = curr->next; 
   }
@@ -71,12 +74,12 @@ void generate_target(quad_list code){
   while (curr->opcode == func_dec){
     printf("process_funcdec\n"); 
     curr = process_funcdec(curr);
-    printf("current quad when process_funcdec returns: %d\n", curr->num); 
     if (curr->opcode == halt){
       ro_instruction("HALT", 0, 0, 0, 0); 
       return; 
     }
   }
+  fclose(file); 
 }
 
 // this could probably be recycled to handle normal vardecs as well: just pass in the offset
@@ -143,7 +146,7 @@ static void process_vardec(quad q, int *offset_from_fp){
     // adjust SP and offset_from_fp appropriately.
     rm_instruction("LDC", 0, 0, 0, 0); 
     rm_instruction("ST", 0, node->offset, 5, 0); 
-    if (type == 0) { // int
+    /*    if (type == 0) { // int
       rm_instruction("LDC", 0, 4, 0, 0); 
       ro_instruction("ADD", 6, 6, 0, 0); 
       *offset_from_fp += 4; 
@@ -152,7 +155,12 @@ static void process_vardec(quad q, int *offset_from_fp){
       rm_instruction("LDC", 0, 8, 0, 0); 
       ro_instruction("ADD", 6, 6, 0, 0); 
       *offset_from_fp += 8; 
-    } 
+      } */ 
+
+    // Don't care what type it was! Everything offset 8. 
+    rm_instruction("LDC", 0, 8, 0, 0); 
+    ro_instruction("ADD", 6, 6, 0, 0); 
+    *offset_from_fp += 8; 
   }
 }
 
@@ -186,9 +194,8 @@ static void process_assignment(quad q, int *offset_from_fp){
     node->offset = *offset_from_fp; 
 
     // make offset_from_fp and increment_reg point to the start of the next word
-    int offset_increment = (value_node->data_type == Double) ? 8 : 4; 
-    *offset_from_fp += offset_increment; 
-    increment_reg(6, offset_increment); 
+    *offset_from_fp += 8; 
+    increment_reg(6, 8); 
     
     // get the value you're storing
     if (value_node != NULL){
@@ -220,16 +227,15 @@ static quad process_funcdec(quad q){
   // figure out function return type
   if (strcmp(q->address1, "int") == 0){
     rtrn_type = 0; 
-    rtrn_val_size = 4; 
   }
   else if (strcmp(q->address1, "double") == 0){
     rtrn_type = 1; 
-    rtrn_val_size = 8; 
   }
   else {
     rtrn_type = 2; 
-    rtrn_val_size = 0; 
   }
+ 
+  rtrn_val_size = 8; 
 
   symnode node = insert_into_symboltable(symtab, q->address2, Function, rtrn_type, 0); 
   node->offset = instruction_pos; 
@@ -239,22 +245,17 @@ static quad process_funcdec(quad q){
   increment_reg(6, rtrn_val_size); 
 
   // store the old R5 (FP); 
-  // "increment R6 by 4" 
+  // increment R6 
   rm_instruction("ST", 5, 0, 6, 0); 
-  increment_reg(6, 4); 
+  increment_reg(6, 8); 
 
-  // R5 = R6 + 4
-  //rm_instruction("LDC", 0, 4, 0); 
-  //ro_instruction("ADD", 5, 6, 0); 
-  // ^ That's what we had before, but I think we actually want R5 = R6 (this will put
-  // the frame pointer at the first empty spot in the function, which feels right).  
+  // R5 = R6
   rm_instruction("LDC", 0, 0, 0, 0); 
   ro_instruction("ADD", 5, 6, 0, 0); 
   offset_from_fp = 0; 
 
   q = q->next; 
   while (q->opcode != exit_sub){
-    // HUGE CASE STATEMENT
     switch(q->opcode) {
     case vardec:
       process_vardec(q, &offset_from_fp); 
@@ -277,17 +278,13 @@ static quad process_funcdec(quad q){
       printf("leave\n"); 
       break; 
     case pardec: 
-      process_pardec(q, rtrn_val_size); 
+      process_pardec(q, rtrn_type); 
       q = q->next; 
       printf("pardec\n"); 
       break; 
     case rtrn: 
-      // only process the return if the function is not void
-      if (rtrn_type != 2){
-	process_return(q, rtrn_val_size); 
-	printf("rtrn\n"); 
-      }
-      printf("rtrn, but not value\n"); 
+      process_return(q, rtrn_type); 
+      printf("rtrn\n"); 
       q = q->next; 
       break;
     case add: 
@@ -345,6 +342,11 @@ static quad process_funcdec(quad q){
       q = q->next; 
       printf("goto_sub\n"); 
       break; 
+    case get_rtrn: 
+      process_get_rtrn(q, 0, rtrn_type); 
+      q = q->next; 
+      printf("get_rtrn\n"); 
+      break; 
     }
   }
   return q->next; 
@@ -376,28 +378,34 @@ static quad process_pardec(quad q, int rtrn_val_size){
     symnode node = insert_into_symboltable(symtab, q->address2, Var, data_type, 0); 
     node->offset = offset; 
 
-    int increment = (data_type == 0) ? -4 : -8; 
+    int increment = -8;  
     offset += increment; 
   }
   return q; 
 }
 
 // return value = -4 - return type off of R5
-static void process_return(quad q, int rtrn_val_size){
+static void process_return(quad q, int rtrn_val_type){
 
   // LD O, t1's offset of R5
   int level; 
   symnode node = lookup_in_symboltable(symtab, q->address1, Var, &level); 
   int reg = (level == 0) ? 4 : 5; 
 
-  if (rtrn_val_size == 8){
+  if (rtrn_val_type == Double){
     rm_instruction("LDF", 0, node->offset, reg, 0); 
-    rm_instruction("STF", 0, -1 * rtrn_val_size, 5, 0); 
+    rm_instruction("STF", 0, -16, 5, 0); 
   }
   else {
-  rm_instruction("LD", 0, node->offset, reg, 0); 
-  rm_instruction("ST", 0, -1 * rtrn_val_size, 5, 0); 
+    rm_instruction("LD", 0, node->offset, reg, 0); 
+    rm_instruction("ST", 0, -16, 5, 0); 
   }
+
+  // now pop everything off the stack. After this, R6 will be pointing to old R5
+  rm_instruction("LD", 6, -8, 5, 0);
+
+  // LD 7, -24(5) to get old R7
+  rm_instruction("LD", 7, -24, 5, 0); 
 }
 
 /* (operation, t1, x, y)
@@ -413,12 +421,13 @@ static void process_math(quad q, int *offset_from_fp, char * operation){
   symnode arg2 = lookup_in_symboltable(symtab, q->address3, Var, &level2);
 
   // If we're here, we know it's an int. 
-  result_size = 4; 
+  // But we don't care! Everything is offset 8. 
+  result_size = 8; 
 
   // insert temp var into symtab and set its offset
   symnode result_node = insert_into_symboltable(symtab, q->address1, Var, Int, 0); 
   result_node->offset = *offset_from_fp;
-  *offset_from_fp += 4; 
+  *offset_from_fp += 8; 
 
   // Put the value of arg1 into R0
   if (arg1 != NULL){
@@ -496,16 +505,16 @@ static void process_float_math(quad q, int *offset_from_fp, char * operation){
 }
 
 // ALWAYS PUT A SPACE FOR RETURN VALUE EVEN IF IT'S VOID
-static void process_exitsub(quad q, int rtrn_type_size){
+static void process_exitsub(quad q, int rtrn_type){
 
   // 1. Make R6 point right above R5
-  rm_instruction("LDA", 6, -4, 5, 0);  
+  rm_instruction("LDA", 6, -8, 5, 0);  
 
   // 2. Set R5 to the contents of R6
   rm_instruction("LD", 5, 0, 6, 0); 
 
   // 3. Move R6 up 1 word (subtract size of return type)
-  rtrn_type_size = -1 * rtrn_type_size; 
+  int rtrn_type_size = -8; 
   rm_instruction("LDC", 0, rtrn_type_size, 0, 0); 
   ro_instruction("ADD", 6, 6, 0, 0); 
 
@@ -523,7 +532,7 @@ static void process_push(quad q){
   int level;
   symnode node = lookup_in_symboltable(symtab, q->address1, Var, &level); 
   int reg = (level == 0) ? 4 : 5; // local vs. global 
-  int size = (node->data_type == Double) ? 8 : 4; 
+  int size = 8; 
   
   rm_instruction("LD", 0, node->offset, reg, 0); // load param into R0
   rm_instruction("ST", 0, 0, 6, 0); 
@@ -541,29 +550,37 @@ static void process_call(quad q){
 
   // 2. where the program counter is now is where we eventually want to return to 
   // store value of R7 into R6 such that it goes the next command 
-  rm_instruction("LDC", 0, 3, 0, 0); // maybe this value of 3 is +/- 1?? 
+  rm_instruction("LDC", 0, 4, 0, 0);  
   ro_instruction("ADD", 0, 0, 7, 0); 
   rm_instruction("ST", 0, 0, 6, 0); 
+  increment_reg(6, 8); 
 
   // 3. put that into memory
   //LDC (7), ^that number(0); <-- found in step 1;
   rm_instruction("LDC", 7, offset, 0, 0); 
 }
 
-// RETURN IS AT R6
-static void process_get_rtrn(quad q, int offset){
+// Return is right above R6
+static void process_get_rtrn(quad q, int num_params, int rtrn_type){
+  // restore R5
+  rm_instruction("LD", 5, 0, 6, 0); 
+
   // 1. put whatever R6 is looking at into R0
   // LD 0, 0(6)
-  rm_instruction("LD", 0, 0, 6, 0); 
-
-  // 2. put R6 back to where it should be: R6 = R5 + current offset
-  rm_instruction("LDC", 1, offset, 0, 0); 
+  increment_reg(6, -8); 
+  if (rtrn_type == Double)
+    rm_instruction("LDF", 0, 0, 6, 0); 
+  else
+    rm_instruction("LD", 0, 0, 6, 0);
+ 
+  // 2. put R6 back to where it should be: R6 = R5 + num_params * 8 
+  rm_instruction("LDC", 1, num_params * 8, 0, 0); 
   ro_instruction("ADD", 6, 5, 1, 0); 
 }
 
 // writes a string to a file
 static void write(char * string){
-  printf("%s", string); 
+  fprintf(file, "%s", string); 
 }
 
 static void ro_instruction(char *opcode, int r, int s, int t, int instruction_override){
