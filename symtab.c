@@ -24,7 +24,6 @@ static symnode create_symnode(char *name, id_type nodeType, types data, int line
   /* If it's a var then it's the type of the var (int double) */
   /* If function, return type (int, double, void) */ 
   node->data_type = data;
-  printf("data_type set to: %d\n", data); 
   node->parameters = NULL;  
   node->line_number = line_number;
   return node;

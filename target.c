@@ -93,7 +93,6 @@ static void process_global(quad q){
   // Not an array
   if (q->address3 == NULL){
     symnode node = insert_into_symboltable(symtab, q->address2, Var, type, 0);
-    print_symnode(node, 0); 
     printf("inserted %s of type %d\n", q->address2, type); 
     node->offset = memory_pointer;
     //    node->
@@ -158,8 +157,6 @@ static void process_vardec(quad q, int *offset_from_fp){
 
 // quad: (assn, arg1, arg2, null)
 static void process_assignment(quad q, int *offset_from_fp){
-  printf("entered process_assignment (like 162)\n");
-  print_symboltable(symtab); 
  
   char * target = q->address1; 
   int level, val_lev, reg; 
