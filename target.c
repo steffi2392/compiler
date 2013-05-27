@@ -71,7 +71,8 @@ void generate_target(quad_list code){
   while (curr->opcode == func_dec){
     printf("process_funcdec\n"); 
     curr = process_funcdec(curr);
-    if (curr->opcode = halt){
+    printf("current quad when process_funcdec returns: %d\n", curr->num); 
+    if (curr->opcode == halt){
       ro_instruction("HALT", 0, 0, 0, 0); 
       return; 
     }
