@@ -56,6 +56,7 @@ void generate_target(quad_list code){
   // general setup
   
   // process all the vardecs first
+  // SOME OF THESE COULD BE ASSIGNMENTS FIX ME
   while (curr->opcode == vardec){
     printf("process_global\n"); 
     process_global(curr); 
@@ -63,7 +64,6 @@ void generate_target(quad_list code){
   }
 
   // the next instruction should jump to main! record this.
-  // WHAT DO YOU DO IF THERE ISN'T A MAIN FUNCTION?? 
   jump_to_main = instruction_pos; 
   instruction_pos++; 
 
@@ -73,7 +73,7 @@ void generate_target(quad_list code){
     curr = process_funcdec(curr);
     if (curr->opcode = halt){
       ro_instruction("HALT", 0, 0, 0, 0); 
-      curr = curr->next; 
+      return; 
     }
   }
 }
@@ -100,16 +100,13 @@ static void process_global(quad q){
 
       if (type == 0){
 	directive(".INT", memory_pointer, 0); 
-	rm_instruction("LDC", 0, 4, 0, 0); 
-	ro_instruction("ADD", 6, 6, 0, 0); 
-     	memory_pointer += 4; 
       }
       else{
-	directive(".INT", memory_pointer, 0); 
-	rm_instruction("LDC", 0, 8, 0, 0); 
-	ro_instruction("ADD", 6, 6, 0, 0); 
-	memory_pointer += 8; 
+	directive(".FLOAT", memory_pointer, 0); 
       }
+      rm_instruction("LDC", 0, 8, 0, 0);
+      ro_instruction("ADD", 6, 6, 0, 0);
+      memory_pointer += 8;
   }
   // dealing with an array
   /*  else{
@@ -218,7 +215,8 @@ static quad process_funcdec(quad q){
 
   // write the jump to main command if this is the main function
   if (strcmp(q->address2, "main") == 0){
-    rm_instruction("LDC", 7, instruction_pos, 0, jump_to_main); 
+    printf("FOUND MAIN\n"); 
+    rm_instruction("LDC", 7, instruction_pos * 4, 0, jump_to_main); 
   }
   
   // figure out function return type
@@ -348,6 +346,7 @@ static quad process_funcdec(quad q){
       process_call(q); 
       q = q->next; 
       printf("goto_sub\n"); 
+      break; 
     }
   }
   return q->next; 
@@ -391,14 +390,15 @@ static void process_return(quad q, int rtrn_val_size){
   // LD O, t1's offset of R5
   int level; 
   symnode node = lookup_in_symboltable(symtab, q->address1, Var, &level); 
-  
+  int reg = (level == 0) ? 4 : 5; 
+
   if (rtrn_val_size == 8){
-    rm_instruction("LDF", 0, node->offset, 5, 0); 
-    rm_instruction("STF", 0, rtrn_val_size, 5, 0); 
+    rm_instruction("LDF", 0, node->offset, reg, 0); 
+    rm_instruction("STF", 0, -1 * rtrn_val_size, 5, 0); 
   }
   else {
-  rm_instruction("LD", 0, node->offset, 5, 0); 
-  rm_instruction("ST", 0, rtrn_val_size, 5, 0); 
+  rm_instruction("LD", 0, node->offset, reg, 0); 
+  rm_instruction("ST", 0, -1 * rtrn_val_size, 5, 0); 
   }
 }
 
@@ -438,7 +438,7 @@ static void process_math(quad q, int *offset_from_fp, char * operation){
     rm_instruction("LD", 1, arg2->offset, arg2_offset_reg, 0); 
   }
   else { // arg2 is a constant
-    val = stoi(q->address2); 
+    val = stoi(q->address3); 
     rm_instruction("LDC", 1, val, 0, 0); 
   }
 
