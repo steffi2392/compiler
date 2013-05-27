@@ -586,7 +586,7 @@ static void write(char * string){
 static void ro_instruction(char *opcode, int r, int s, int t, int instruction_override){
   char buffer[MAX_BUFFER]; 
   int instruct_num = (instruction_override == 0) ? instruction_pos : instruction_override; 
-  snprintf(buffer, MAX_BUFFER, "%d: %s, %d, %d, %d\n", instruct_num, opcode, r, s, t); 
+  snprintf(buffer, MAX_BUFFER, "%d: %s %d, %d, %d\n", instruct_num, opcode, r, s, t); 
   write(buffer); 
 
   if (instruction_override == 0)
