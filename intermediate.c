@@ -10,6 +10,7 @@
 
 /* Prototypes */ 
 //static void generate_traverse(ast_node node, quad_list inter_code); 
+static void generate_traverse_recurse(ast_node node); 
 static void implement_node(ast_node node); 
 static char * new_address();
 static int get_num_addresses();  
@@ -22,6 +23,7 @@ static char * process_right(ast_node node);
 static void build_code(ast_node node, quad new_quad, char * address1, char * address2, char * address3); 
 static void process_assign(ast_node node); 
 static void process_math(ast_node node); 
+static void process_float_math(ast_node node); 
 static void process_negate(ast_node node); 
 static void process_inc(ast_node node, char * inc); 
 static void process_cmpd(ast_node node); 
@@ -53,11 +55,13 @@ int num_quads = 0;
 // used for printing code - converts opcode enum to its string
 static char* opcode_table[] = {"assn", "array_assn", "add", "sub", "mult", "divide", 
 			       "mod", "eq", "neq", "lt", "leq", 
-			       "gt", "geq", "and", "or", "not", 
+			       "gt", "geq", "f_add", "f_sub", "f_mult", "f_divide",
+			       "f_mod", "f_eq", "f_neq", "f_lt", "f_leq", 
+			       "f_gt", "f_geq", "and", "or", "not", 
 			       "enter", "leave", "ifFalse", "jumpTo", "read", 
 			       "print", "rtrn", "get_rtrn", "func_dec", "goto_sub", 
 			       "exit_sub", "push", "pop", "vardec", "pardec", 
-			       "array_lkup", "halt"}; 
+			       "array_lkup", "halt", "end"}; 
 
 /* create a quad with a given opcode and return a pointer 
    to it.  Initializes all addresses to NULL */
@@ -69,6 +73,20 @@ quad create_quad(opcode_type opcode){
   new_quad->address3 = NULL; 
   new_quad->next = new_quad; 
   new_quad->prev = new_quad;
+  new_quad->num = num_quads; 
+
+  num_quads++; 
+  return new_quad; 
+}
+
+quad create_full_quad(opcode_type opcode, char * addr1, char * addr2, char * addr3){
+  quad new_quad = malloc(sizeof(struct quad_struct)); 
+  new_quad->opcode = opcode; 
+  new_quad->address1 = addr1; 
+  new_quad->address2 = addr2; 
+  new_quad->address3 = addr3; 
+  new_quad->next = new_quad; 
+  new_quad->prev = new_quad; 
   new_quad->num = num_quads; 
 
   num_quads++; 
@@ -110,12 +128,20 @@ void destroy_quad_list(quad_list q){
   } 
 }
 
-/* actually does the fun stuff */ 
 void generate_traverse(ast_node node){
+  generate_traverse_recurse(node); 
+  
+  // add the end quad
+  quad end_quad = create_quad(end);
+  add_quad(node, end_quad);
+}
+
+/* actually does the fun stuff */ 
+static void generate_traverse_recurse(ast_node node){
   if (node != NULL){
     ast_node child = node->left_child; 
     while (child != NULL){
-      generate_traverse(child); 
+      generate_traverse_recurse(child); 
       child = child->right_sibling; 
     } 
     // generate code to implement node's action
@@ -264,6 +290,20 @@ static void add_quad(ast_node node, quad q){
   }
 }
 
+void add_to_code(quad_list code, quad q){
+  if (code->first == NULL && q != NULL){
+    code->first = q; 
+    q->next = q; 
+    q->prev = q; 
+  }
+  else if (q != NULL){
+    q->prev = code->first->prev; 
+    q->next = code->first; 
+    code->first->prev->next = q; 
+    code->first->prev = q; 
+  }
+}
+
 // adds a quad q to the beginning of the code of some node
 static void add_quad_to_beginning(ast_node node, quad q){
   if (node->code->first == NULL && q != NULL){
@@ -355,7 +395,13 @@ static char * process_right(ast_node node){
  * Format: (operation, target location, left argument, right argument)
  */ 
 static void process_math(ast_node node){
+  // if its a float - process float math
+  if (node->type == Double){
+    process_float_math(node); 
+  }
+
   quad new_quad = NULL;   
+
   if (node->node_type == OP_PLUS){
     new_quad = create_quad(add);       
   }                         
@@ -389,12 +435,6 @@ static void process_math(ast_node node){
   else if (node->node_type == OP_GEQ){
     new_quad = create_quad(geq); 
   }
-  /*  else if (node->node_type == OP_AND){
-    new_quad = create_quad(and); 
-  }
-  else if (node->node_type == OP_OR){
-    new_quad = create_quad(or); 
-    }*/ 
   else if (node->node_type == OP_NOT){
     new_quad = create_quad(not); 
   }
@@ -415,6 +455,57 @@ static void process_math(ast_node node){
     destroy_quad(new_quad);        
     error("process math");                 
   }          
+}
+
+// process float math
+static void process_float_math(ast_node node){
+  quad new_quad = NULL; 
+
+  switch (node->node_type){
+  case OP_PLUS:
+    new_quad = create_quad(f_add);
+    break;
+  case OP_MINUS: 
+    new_quad = create_quad(f_sub); 
+    break; 
+  case OP_TIMES: 
+    new_quad = create_quad(f_mult); 
+    break;
+  case OP_DIVIDE:
+    new_quad = create_quad(f_divide); 
+    break;
+  case OP_EQUALS: 
+    new_quad = create_quad(f_eq); 
+    break;
+  case OP_NEQUALS: 
+    new_quad = create_quad(f_neq); 
+    break;
+  case OP_LT: 
+    new_quad = create_quad(f_lt); 
+    break;
+  case OP_LEQ: 
+    new_quad = create_quad(f_leq); 
+    break;
+  case OP_GT: 
+    new_quad = create_quad(f_gt); 
+    break;
+  case OP_GEQ: 
+    new_quad = create_quad(f_geq); 
+    break;
+  }
+
+  // location being assigned to is new!
+  char *target = new_address(); 
+  char * left = process_left(node); 
+  char *right = process_right(node); 
+
+  if (new_quad != NULL && target != NULL && left != NULL && right != NULL){
+    build_code(node, new_quad, target, left, right);
+  }
+  else {
+    destroy_quad(new_quad);
+    error("process_float_math");
+  }
 }
 
 // builds the code for nodes that just take the code from their children and then
@@ -845,6 +936,12 @@ static void process_function(ast_node node){
   // leave subroutine (return addr will be in a register)
   quad exit_sub_quad = create_quad(exit_sub);
   add_quad(node, exit_sub_quad); 
+
+  // if it's main, add halt
+  if (strcmp(name, "main") == 0){
+    quad halt_quad = create_quad(halt); 
+    add_quad(node, halt_quad); 
+  }
 }
 
 /* pop each value off the stack that corresponds with a parameter 
@@ -968,7 +1065,7 @@ static void process_root(ast_node node){
   }
 
   // 2. find the main funcdec and add its code
-  ast_node first_funcdec = curr;
+  /*  ast_node first_funcdec = curr;
   ast_node main; 
   
   main = first_funcdec; 
@@ -988,13 +1085,15 @@ static void process_root(ast_node node){
   // 3. HALT quad
   quad halt_quad = create_quad(halt); 
   add_quad(node, halt_quad); 
+  */ 
 
+  ast_node first_funcdec = curr; 
   // 4. add the code for all the other functions
   for (curr = first_funcdec; curr != NULL; curr = curr->right_sibling){
-    name = curr->left_child->right_sibling->value.string; 
-    if (strcmp(name, "main") != 0){
+    //name = curr->left_child->right_sibling->value.string; 
+    //if (strcmp(name, "main") != 0){
       add_quad_list(node, curr->code); 
-    }
+      //}
   }
 }
 

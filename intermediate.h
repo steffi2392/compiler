@@ -13,9 +13,10 @@
 
 /* opcodes for the quads */ 
 typedef enum {assn, array_assn, add, sub, mult, divide, mod, eq, neq, lt, leq, gt, 
-	      geq, and, or, not, enter, leave, ifFalse, jumpTo, read, print, 
+	      geq, f_add, f_sub, f_mult, f_divide, f_mod, f_eq, f_neq, f_lt, f_leq, 
+	      f_gt, f_geq, and, or, not, enter, leave, ifFalse, jumpTo, read, print, 
               rtrn, get_rtrn, func_dec, goto_sub, exit_sub, push, pop, vardec, 
-              pardec, array_lkup, halt} opcode_type; 
+              pardec, array_lkup, halt, end} opcode_type; 
 
 /* Structure for a quad. Knows its opcode and up to 3 addresses - these are strings
    which can then be looked up in the symbol table. It also knows its next and
@@ -39,6 +40,7 @@ struct quad_list_struct {
 
 /* Create a quad with a given opcode and return a pointer to that quad. */
 quad create_quad(opcode_type opcode); 
+quad create_full_quad(opcode_type opcode, char * addr1, char * addr2, char * addr3); 
 void destroy_quad(quad q); 
 void destroy_quad_list(quad_list q); 
 

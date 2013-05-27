@@ -40,6 +40,9 @@ tree_main.o: tree_main.c
 target_main.o: target_main.c
 	$(CC) -c $(CFLAGS) -o target_main.o target_main.c
 
+target_test.o: target_test.c
+	$(CC) -c $(CLFAGS) -o target_test.o target_test.c
+
 symtab.o: symtab.c
 	$(CC) -c $(CFLAGS) $<
 
@@ -57,4 +60,4 @@ parser:
 
 clean: 
 	rm -f tree lex.yy.o tree.tab.o tree_main.o ast_o tree.tab.h tree.tab.c\
-	lex.yy.c *.o *~ tree.output vgcore.* core* generate
+	lex.yy.c *.o *~ tree.output vgcore.* core* generate target

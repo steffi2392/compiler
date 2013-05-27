@@ -79,5 +79,5 @@ void leave_scope(symboltable symtab);
 
 /* Print a symbol table. */
 void print_symboltable(symboltable symtab);
-
+void print_symnode(symnode node, int num_spaces); 
 #endif

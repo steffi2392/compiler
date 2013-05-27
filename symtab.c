@@ -24,6 +24,7 @@ static symnode create_symnode(char *name, id_type nodeType, types data, int line
   /* If it's a var then it's the type of the var (int double) */
   /* If function, return type (int, double, void) */ 
   node->data_type = data;
+  printf("data_type set to: %d\n", data); 
   node->parameters = NULL;  
   node->line_number = line_number;
   return node;
@@ -37,13 +38,13 @@ static void destroy_symnode(symnode node) {
 }
 
 /* Print a symnode. */
-static void print_symnode(symnode node, int num_spaces) {
+void print_symnode(symnode node, int num_spaces) {
   int i;
   for (i = 0; i < num_spaces; i++){
     printf(" ");
   }
 
-  printf("Name: %s, Type: %s, isVar: %d \n", node->name, node->data_type, node->node_type);
+  printf("Name: %s, Type: %d, isVar: %d \n", node->name, node->data_type, node->node_type);
 }
 
 

@@ -1,4 +1,4 @@
- /* target.c
+/* target.c
  * Makes target code from quads
  */ 
 
@@ -18,7 +18,8 @@ static void process_enter(quad q);
 static void process_leave(quad q); 
 static quad process_pardec(quad q, int rtrn_val_size);
 static void process_return(quad q, int rtrn_val_size); 
-static void process_add(quad q); 
+static void process_math(quad q, int *offset_from_fp, char * operation); 
+static void process_float_math(quad q, int *offset_from_fp, char * operation); 
 static void process_exitsub(quad q, int rtrn_type_size); 
 static void process_push(quad q); 
 static void process_call(quad q); 
@@ -56,21 +57,25 @@ void generate_target(quad_list code){
   
   // process all the vardecs first
   while (curr->opcode == vardec){
+    printf("process_global\n"); 
     process_global(curr); 
     curr = curr->next; 
   }
 
   // the next instruction should jump to main! record this.
+  // WHAT DO YOU DO IF THERE ISN'T A MAIN FUNCTION?? 
   jump_to_main = instruction_pos; 
   instruction_pos++; 
 
   // Now process functions
   while (curr->opcode == func_dec){
-    curr = process_funcdec(curr); 
+    printf("process_funcdec\n"); 
+    curr = process_funcdec(curr);
+    if (curr->opcode = halt){
+      ro_instruction("HALT", 0, 0, 0, 0); 
+      curr = curr->next; 
+    }
   }
-
-  // Now halt
-  ro_instruction("HALT", 0, 0, 0, 0); 
 }
 
 // this could probably be recycled to handle normal vardecs as well: just pass in the offset
@@ -87,7 +92,9 @@ static void process_global(quad q){
 
   // Not an array
   if (q->address3 == NULL){
-    symnode node = insert_into_symboltable(symtab, q->address2, type, 1, 0);
+    symnode node = insert_into_symboltable(symtab, q->address2, Var, type, 0);
+    print_symnode(node, 0); 
+    printf("inserted %s of type %d\n", q->address2, type); 
     node->offset = memory_pointer;
     //    node->
 
@@ -154,11 +161,15 @@ static void process_vardec(quad q, int *offset_from_fp){
 
 // quad: (assn, arg1, arg2, null)
 static void process_assignment(quad q, int *offset_from_fp){
+  printf("entered process_assignment (like 162)\n");
+  print_symboltable(symtab); 
+ 
   char * target = q->address1; 
   int level, val_lev, reg; 
   symnode node = lookup_in_symboltable(symtab, target, Var, &level); 
   if (node != NULL){ // storing into an established variable
-    symnode value = lookup_in_symboltable(symtab, q->address2, 1, &val_lev); 
+    symnode value = lookup_in_symboltable(symtab, q->address2, 1, &val_lev);
+    printf("found x\n"); 
     if (value != NULL){
       reg = (val_lev == 0) ? 4 : 5; 
       rm_instruction("LD", 0, value->offset, reg, 0); 
@@ -173,6 +184,7 @@ static void process_assignment(quad q, int *offset_from_fp){
   }
   // Storing into a temp var 
   else {
+    printf("did not find x\n"); 
     symnode value_node = lookup_in_symboltable(symtab, q->address2, Var, &level); 
     char * temp_var = process_temp(target); 
     node = insert_into_symboltable(symtab, temp_var, Var, value_node->data_type, 0); 
@@ -186,7 +198,7 @@ static void process_assignment(quad q, int *offset_from_fp){
     // get the value you're storing
     if (value_node != NULL){
       reg = (val_lev == 0) ? 4 : 5; // what register am I taking offset of? 
-      rm_instruction("LD", 0, value->offset, reg, 0); 
+      rm_instruction("LD", 0, value_node->offset, reg, 0); 
     }
     else { // it's a constant
       int constant = stoi(q->address2); 
@@ -251,37 +263,91 @@ static quad process_funcdec(quad q){
     case vardec:
       process_vardec(q, &offset_from_fp); 
       q = q->next; 
+      printf("vardec\n"); 
       break; 
     case assn: 
       process_assignment(q, &offset_from_fp); 
       q = q->next; 
+      printf("assn\n"); 
       break; 
     case enter: 
       process_enter(q); 
       q = q->next; 
+      printf("enter\n"); 
       break; 
     case leave: 
       process_leave(q); 
       q = q->next; 
+      printf("leave\n"); 
       break; 
     case pardec: 
       process_pardec(q, rtrn_val_size); 
       q = q->next; 
+      printf("pardec\n"); 
       break; 
     case rtrn: 
       // only process the return if the function is not void
-      if (rtrn_type != 2)
+      if (rtrn_type != 2){
 	process_return(q, rtrn_val_size); 
+	printf("rtrn\n"); 
+      }
+      printf("rtrn, but not value\n"); 
       q = q->next; 
       break;
     case add: 
-      process_add(q); 
-      q = q->next; 
+      process_math(q, &offset_from_fp, "ADD"); 
+      q = q->next;
+      printf("add\n"); 
       break; 
+    case sub: 
+      process_math(q, &offset_from_fp, "SUB"); 
+      q = q->next; 
+      printf("sub\n"); 
+      break;
+    case mult:
+      process_math(q, &offset_from_fp, "MUL"); 
+      q = q->next; 
+      printf("mult\n"); 
+      break; 
+    case divide: 
+      process_math(q, &offset_from_fp, "DIV"); 
+      q = q->next; 
+      printf("divide\n"); 
+      break;
+    case mod: 
+      process_math(q, &offset_from_fp, "MOD"); 
+      q = q->next; 
+      printf("mod\n"); 
+      break; 
+    case f_add: 
+      process_float_math(q, &offset_from_fp, "ADDF"); 
+      q = q->next; 
+      printf("addf\n"); 
+      break; 
+    case f_sub: 
+      process_float_math(q, &offset_from_fp, "SUBF"); 
+      q = q->next; 
+      printf("subf\n"); 
+      break; 
+    case f_mult: 
+      process_float_math(q, &offset_from_fp, "MULF"); 
+      q = q->next; 
+      printf("mulf\n"); 
+      break; 
+    case f_divide: 
+      process_float_math(q, &offset_from_fp, "DIVF"); 
+      q = q->next; 
+      printf("divf\n"); 
+      break;
     case push: 
       process_push(q); 
       q = q->next; 
-      break; 
+      printf("push\n"); 
+      break;
+    case goto_sub: 
+      process_call(q); 
+      q = q->next; 
+      printf("goto_sub\n"); 
     }
   }
   return q->next; 
@@ -325,46 +391,41 @@ static void process_return(quad q, int rtrn_val_size){
   // LD O, t1's offset of R5
   int level; 
   symnode node = lookup_in_symboltable(symtab, q->address1, Var, &level); 
+  
+  if (rtrn_val_size == 8){
+    rm_instruction("LDF", 0, node->offset, 5, 0); 
+    rm_instruction("STF", 0, rtrn_val_size, 5, 0); 
+  }
+  else {
   rm_instruction("LD", 0, node->offset, 5, 0); 
-
-  // ST 0, -offset(5)
   rm_instruction("ST", 0, rtrn_val_size, 5, 0); 
+  }
 }
 
-/* (add, t1, x, y)
+/* (operation, t1, x, y)
  *  1. move R6 (by 4 or 8)
  *  2. set $t's offset off of R5
- *  3. actually add
+ *  3. actually perform the operation
+ * This only handles ints! 
  */ 
-// HOW DO I TELL THE TYPE OF 2 CONSTANTS???
-// THIS ONLY WORKS FOR INTS 
-static void process_add(quad q, int *offset_from_fp){
+static void process_math(quad q, int *offset_from_fp, char * operation){
   // type of t1 is the type of x and y
   int level1, level2, result_size, result_type, val; 
   symnode arg1 = lookup_in_symboltable(symtab, q->address2, Var, &level1); 
   symnode arg2 = lookup_in_symboltable(symtab, q->address3, Var, &level2);
 
-  if (arg1 != NULL){
-    result_size = (arg1->data_type == Int) ? 4 : 8; 
-    result_type = arg1->data_type;
-  }
-  else if (arg2 != NULL){
-    result_size = (arg2->data_type == Int) ? 4 : 8; 
-    result_type = arg2->data_type; 
-  }
-  else{
-    // WHAT DO YOU DO IF THEY'RE BOTH CONSTANTS?? 
-  }
+  // If we're here, we know it's an int. 
+  result_size = 4; 
 
   // insert temp var into symtab and set its offset
-  symnode result_node_node = insert_into_symboltable(symtab, q->address1, Var, result_type, 0); 
+  symnode result_node = insert_into_symboltable(symtab, q->address1, Var, Int, 0); 
   result_node->offset = *offset_from_fp;
-  *offset_from_fp += new_size; 
+  *offset_from_fp += 4; 
 
   // Put the value of arg1 into R0
   if (arg1 != NULL){
     int arg1_offset_reg = (level1 == 0) ? 4 : 5; // global or local? 
-    rm_instuction("LD", 0, arg1->offset, arg1_offset_reg); 
+    rm_instruction("LD", 0, arg1->offset, arg1_offset_reg, 0); 
   }
   else { // arg1 is a constant
     val = stoi(q->address2); 
@@ -382,13 +443,58 @@ static void process_add(quad q, int *offset_from_fp){
   }
 
   // add those values into R0
-  ro_instruction("ADD", 0, 0, 1, 0); 
+  ro_instruction(operation, 0, 0, 1, 0); 
 
   // store that value into proper spot (at R6)
   rm_instruction("ST", 0, 0, 6, 0); 
 
   // increment FP
-  increment_reg(6, new_size); 
+  increment_reg(6, result_size); 
+}
+
+// This one handles floats!
+// There might be alignment issues!!
+static void process_float_math(quad q, int *offset_from_fp, char * operation){
+  int level1, level2, result_size, val; 
+  symnode arg1 = lookup_in_symboltable(symtab, q->address2, Var, &level1); 
+  symnode arg2 = lookup_in_symboltable(symtab, q->address3, Var, &level2); 
+
+  // We know it's a double!
+  result_size = 8; 
+
+  // insert temp var into symtab and set its offset                                            
+  symnode result_node = insert_into_symboltable(symtab, q->address1, Var, Int, 0);
+  result_node->offset = *offset_from_fp;
+  *offset_from_fp += 8;
+
+  // Put the value of arg1 into R0                                                          
+  if (arg1 != NULL){
+    int arg1_offset_reg = (level1 == 0) ? 4 : 5; // global or local?                        
+    rm_instruction("LDF", 0, arg1->offset, arg1_offset_reg, 0);
+  }
+  else { // arg1 is a constant                                                              
+    val = stoi(q->address2);
+    rm_instruction("LDFC", 0, val, 0, 0);
+  }
+
+  // Put the value of arg2 into R1                                                          
+  if (arg2 != NULL){
+    int arg2_offset_reg = (level2 == 0) ? 4 : 5; // global or local?                        
+    rm_instruction("LDF", 1, arg2->offset, arg2_offset_reg, 0);
+  }
+  else { // arg2 is a constant                                                              
+    val = stoi(q->address2);
+    rm_instruction("LDFC", 1, val, 0, 0);
+  }
+
+  // add those values into R0                      
+  ro_instruction(operation, 0, 0, 1, 0);
+
+  // store that value into proper spot (at R6)     
+  rm_instruction("STF", 0, 0, 6, 0);
+
+  // increment FP                                  
+  increment_reg(6, result_size);
 }
 
 // ALWAYS PUT A SPACE FOR RETURN VALUE EVEN IF IT'S VOID
@@ -460,7 +566,6 @@ static void process_get_rtrn(quad q, int offset){
 // writes a string to a file
 static void write(char * string){
   printf("%s", string); 
-  program_counter++; 
 }
 
 static void ro_instruction(char *opcode, int r, int s, int t, int instruction_override){

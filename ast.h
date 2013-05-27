@@ -65,5 +65,5 @@ void generate_traverse(ast_node node);
 quad_list create_quad_list();
 void print_code(quad_list code);
 void reset_num_quads();
-
+void add_to_code(quad_list code, quad q); 
 #endif
