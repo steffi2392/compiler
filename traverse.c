@@ -212,7 +212,7 @@ types typecheck(ast_node parent, symboltable symtab){
 		idtype(orig->node_type, t);
 		char d[15];
 		datatype(orig->data_type, d);
-		printf("observing node %s, with node type %s and data type %s", orig->name, t,d);
+		printf("observing node %s, with node type %s and data type %s\n", orig->name, t,d);
 		return orig->data_type;
 	}
 	
@@ -297,11 +297,27 @@ types typecheck(ast_node parent, symboltable symtab){
 		printf("Comparing Args to Parameters\n");
 		
 		while(params != NULL && args != NULL ){
-		  types t1 = typecheck(params, symtab);
-		  types t2 = typecheck(args, symtab);
+			types t1 = typecheck(params, symtab);
+			types t2 = typecheck(args, symtab);
 			
 			printf("pair:Params has type %d, args has type %d\n" , t1, t2);
-			if(t1 != t2){
+			if (params->left_child == NULL){
+				symnode ar = lookup_in_symboltable(symtab, args->value.string, Array, &level);
+				if (ar != NULL) {
+					fprintf(stderr, "Type mismatch while calling function %s\n", orig->name);
+					exit(1);
+					}
+				}
+			else{
+				symnode ar = lookup_in_symboltable(symtab, args->value.string, Var, &level);
+				if (ar != NULL) {
+					fprintf(stderr, "Type mismatch while calling function %s\n", orig->name);
+					exit(1);
+					}
+				}
+			
+			
+			if(t1 != t2 ){
 				fprintf(stderr, "Type mismatch while calling function %s\n", orig->name);
 				exit(1);
 			}
@@ -392,9 +408,13 @@ void traverse(ast_node parent, symboltable symtab){
 				case ARRAY:
 					insert_into_symboltable(symtab, c->value.string,Array, c->type,  c->line_number);
 					typecheck(n, symtab);
-					n->left_child->right_sibling->value.int_value = evaluate(n->left_child->right_sibling);
+					if (n->left_child->right_sibling != NULL){
+						printf("Evaluating");
+						n->left_child->right_sibling->value.int_value = evaluate(n->left_child->right_sibling);
 					idtype(n->left_child->node_type, t);
-					printf("var name: %s, type: %s, size %d\n", c->value.string , t, n->left_child->right_sibling->value.int_value);
+						printf("var name: %s, type: %s, size %d\n", c->value.string , t, n->left_child->right_sibling->value.int_value);
+					}
+					else printf("var name: %s, type: %s, size unknown as it is a parameter\n", c->value.string , t);
 
 					break;
 			}
