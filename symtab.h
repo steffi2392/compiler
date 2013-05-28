@@ -17,7 +17,7 @@ struct symnode {
   symnode next;	    /* next symnode in list */
   id_type node_type;        /* 2 if Array, 1 if it's a var, 0 if function */
   types data_type;       /* data type */
-  ast_node* parameters;
+  ast_node parameters;
   int line_number;
   int offset; 
   };
@@ -27,7 +27,7 @@ void set_node_name(symnode node, char *name);
 
 void set_node_type(symnode node, id_type type); 
 void set_node_data_type(symnode node, types type);
-void set_node_param(symnode node, ast_node* param);
+void set_node_param(symnode node, ast_node param);
 /* Does the identifier in this node equal name? */
 int name_is_equal(symnode node, char *name);
 

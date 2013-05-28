@@ -2,8 +2,8 @@ CC = gcc
 CFLAGS = -g
 BISONFL = -d -v
 
-tree: lex.yy.o tree.tab.o table.o  symtab.o ast.o intermediate.o tree_main.o
-	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o table.o symtab.o ast.o intermediate.o  tree_main.o
+tree: lex.yy.o tree.tab.o table.o  symtab.o ast.o intermediate.o tree_main.o traverse.o
+	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o table.o symtab.o ast.o intermediate.o tree_main.o traverse.o
 
 generate: lex.yy.o tree.tab.o table.o  symtab.o ast.o intermediate.o generate.o
 	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o table.c  symtab.o ast.o intermediate.o generate.o
@@ -37,14 +37,17 @@ tree_main.o: tree_main.c
 #tree_main.o: generate_code.c
 	$(CC) -c $(CFLAGS) -o tree_main.o tree_main.c
 
+symtab.o : symtab.c symtab.h
+	$(CC) -c $(CFLAGS) $<
+
+traverse.o : traverse.c traverse.h
+	$(CC) -c $(CFLAGS) $<
+
 target_main.o: target_main.c
 	$(CC) -c $(CFLAGS) -o target_main.o target_main.c
 
 target_test.o: target_test.c
 	$(CC) -c $(CLFAGS) -o target_test.o target_test.c
-
-symtab.o: symtab.c
-	$(CC) -c $(CFLAGS) $<
 
 typecheck.o: typecheck.c typecheck.h symtab.h 
 	$(CC) -c $(CFLAGS) $<

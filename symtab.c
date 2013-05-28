@@ -71,7 +71,7 @@ int name_is_equal(symnode node, char *name) {
   return !strcmp(node->name, name);
 }
 
-void set_node_param(symnode node, ast_node* param){
+void set_node_param(symnode node, ast_node param){
 	if (node->node_type == Function)
 		node->parameters = param;
 	}
