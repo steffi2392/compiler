@@ -76,7 +76,8 @@ static struct token_lookup token_table[] = {
 
 int evaluate(ast_node expression){
 	ast_node_type t = expression->node_type;
-
+	if (expression == NULL)
+		return -1;
 	if (t == IDENT || t==CALL || t==OP_INC || t==OP_DEC || t==ARRAY){
 		fprintf(stderr, "Variable sized arrays are not supported. Error at line %d\n", expression->line_number);
 		exit(1);
@@ -140,12 +141,11 @@ int evaluate(ast_node expression){
 		else expression->value.int_value = 0;
 	}
 
-		
 	return expression -> value.int_value;
 }
 
 void scopecheck(ast_node parent, symboltable symtab){
-	printf("begin checking node scope %s\n",  token_table[parent->node_type].token);
+	//printf("begin checking node scope %s\n",  token_table[parent->node_type].token);
 
 	// binary operations
 	if (parent->node_type == OP_EQUALS || parent->node_type == OP_NEQUALS || parent->node_type == OP_LT || 
@@ -177,8 +177,11 @@ void scopecheck(ast_node parent, symboltable symtab){
 		int level;
 		symnode orig = lookup_in_symboltable(symtab, parent->value.string, Var,&level);
 		if (orig == NULL){
-			fprintf(stderr, "Undeclared variable %s on line %d", parent->value.string, parent->line_number);
-			exit(1);
+			orig = lookup_in_symboltable(symtab, parent->value.string, Array,&level);
+			if (orig == NULL){
+				fprintf(stderr, "Undeclared variable %s on line %d", parent->value.string, parent->line_number);
+				exit(1);
+			}
 		}
 	}
 	
@@ -198,20 +201,22 @@ void scopecheck(ast_node parent, symboltable symtab){
 }
 
 types typecheck(ast_node parent, symboltable symtab){
-	printf("begin checking node type %s\n",  token_table[parent->node_type].token);
+	//printf("begin checking node type %s\n",  token_table[parent->node_type].token);
 
-	if (parent->node_type == INT_LITERAL)
+	if (parent->node_type == INT_LITERAL || parent->node_type == INT_TYPE)
 		return Int;
-	if (parent->node_type == DOUBLE_LITERAL)
+	if (parent->node_type == DOUBLE_LITERAL || parent->node_type == DOUBLE_TYPE)
 		return Double;
 	if (parent->node_type ==IDENT) {
 		int level;
 		symnode orig = lookup_in_symboltable(symtab, parent->value.string, Var,&level);
+		if (orig == NULL)
+			orig = lookup_in_symboltable(symtab, parent->value.string, Array,&level);
 		char t[15]; 
 		idtype(orig->node_type, t);
 		char d[15];
 		datatype(orig->data_type, d);
-		printf("observing node %s, with node type %s and data type %s", orig->name, t,d);
+		//printf("observing node %s, with node type %s and data type %s\n", orig->name, t,d);
 		return orig->data_type;
 	}
 	
@@ -257,6 +262,7 @@ types typecheck(ast_node parent, symboltable symtab){
 		}
 	}
 	
+	
 	if (parent->node_type == ARRAY){
 		int level;
 		symnode orig = lookup_in_symboltable(symtab, parent->left_child->value.string, Array,&level);
@@ -265,12 +271,15 @@ types typecheck(ast_node parent, symboltable symtab){
 		char d[15];
 		datatype(orig->data_type, d);
 
-		printf("observing node %s, with node type %s and data type %s", orig->name, t, d);
+		//printf("observing node %s, with node type %s and data type %s", orig->name, t, d);
 		types type1 = orig->data_type;
-		types type2 = typecheck(parent->left_child->right_sibling, symtab);
-		if(type2 != Int){
-			fprintf(stderr, "Indexing Error on line %d, Use Integer index", parent->line_number);
-			exit(1);
+		if (parent->left_child->right_sibling != NULL){
+			types type2 = typecheck(parent->left_child->right_sibling, symtab);
+			if(type2 != Int){
+				fprintf(stderr, "Indexing Error on line %d, Use Integer index", parent->line_number);
+				exit(1);
+			}
+			else return type1;
 		}
 		else return type1;
 	}
@@ -283,20 +292,41 @@ types typecheck(ast_node parent, symboltable symtab){
 		char d[15];
 		datatype(orig->data_type, d);
 
-		printf("function %s, with node type %s and data type %s", orig->name, t, d);
+		//printf("function %s, with node type %s and data type %s", orig->name, t, d);
 		
 		ast_node params = orig->parameters;
 		params = params->left_child;
 		ast_node args = parent->left_child->right_sibling->left_child;
 		
-		printf("Comparing Args to Parameters\n");
+		//printf("Comparing Args to Parameters\n");
 		
 		while(params != NULL && args != NULL ){
 			types t1 = typecheck(params, symtab);
 			types t2 = typecheck(args, symtab);
 			
-			printf("pair:Params has type %d, args has type %d\n" , t1, t2);
-			if(t1 != t2){
+			//printf("pair:Params has type %d, args has type %d\n" , t1, t2);
+			if (params->left_child->node_type == ARRAY && args->node_type == IDENT){
+				symnode ar = lookup_in_symboltable(symtab, args->value.string, Array, &level);
+				if (ar == NULL) {
+					fprintf(stderr, "Type mismatch while calling function %s\n", orig->name);
+					exit(1);
+					}
+				}
+			/*
+			else if (params->left_child->node_type == IDENT ){
+				
+				symnode ar;
+				if (args->node_type == IDENT)
+					ar= lookup_in_symboltable(symtab, args->value.string, Var, &level);
+				if (args->node_type == ARRAY)
+				if (ar == NULL) {
+					fprintf(stderr, "Type mismatch while calling function %s\n", orig->name);
+					exit(1);
+					}
+				}
+			}
+			*/
+			if(t1 != t2 ){
 				fprintf(stderr, "Type mismatch while calling function %s\n", orig->name);
 				exit(1);
 			}
@@ -327,7 +357,7 @@ types typecheck(ast_node parent, symboltable symtab){
 
 void traverse(ast_node parent, symboltable symtab){
 
-	printf("begin traversal at node %s\n",  token_table[parent->node_type].token);
+	//printf("begin traversal at node %s\n",  token_table[parent->node_type].token);
 	
 	if (parent->node_type== ROOT || parent->node_type == CMPD || parent->node_type == PARAMS){
 		ast_node n = parent->left_child;
@@ -335,7 +365,7 @@ void traverse(ast_node parent, symboltable symtab){
 		/* a ROOT node has either var decs or func decs as its children, go through each*/
 	//	ast_node n = parent->left_child;
 		while (n!=NULL) {
-			printf("recursing on new root child %s\n",  token_table[n->node_type].token);
+			//	printf("recursing on new root child %s\n",  token_table[n->node_type].token);
 
 			traverse(n, symtab);
 			n = n->right_sibling;	
@@ -345,7 +375,7 @@ void traverse(ast_node parent, symboltable symtab){
 	else if (parent-> node_type == FUNCDEC){
 		ast_node n = parent->left_child->right_sibling;
 		symnode func_name = insert_into_symboltable(symtab, n->value.string, Function, parent->left_child->type, n->line_number);
-		printf("Entering the scope of function %s\n", n->value.string);
+		//printf("Entering the scope of function %s\n", n->value.string);
 		enter_scope(symtab);
 		ast_node params = parent->left_child->right_sibling->right_sibling;
 		func_name->parameters = params;
@@ -362,14 +392,14 @@ void traverse(ast_node parent, symboltable symtab){
 		int type;
 		char t[15];
 		while (n!=NULL) {
-			printf("recurse on  %s\n",  token_table[n->node_type].token);
+			//printf("recurse on  %s\n",  token_table[n->node_type].token);
 			ast_node c=n->left_child;
 			switch(n->node_type){
 					// If an ID is found, the ast node has all the information needed to populate the symtable
 				case IDENT:
 					insert_into_symboltable(symtab, n->value.string, Var, n->type, n->line_number);
 					datatype(n->type, t);
-					printf("var name: %s, type: %s\n", n->value.string, t );
+					//printf("var name: %s, type: %s\n", n->value.string, t );
 
 					break;
 	
@@ -379,7 +409,7 @@ void traverse(ast_node parent, symboltable symtab){
 					scopecheck(n->left_child->right_sibling, symtab);
 					typecheck(n, symtab);
 					datatype(n->left_child->type, t);
-					printf("var name: %s, type: %s\n", c->value.string , t);
+					//printf("var name: %s, type: %s\n", c->value.string , t);
 					break;
 	
 					// Add the left child of the assignment operation, check the right sibling to make sure it's an int.
@@ -387,9 +417,13 @@ void traverse(ast_node parent, symboltable symtab){
 				case ARRAY:
 					insert_into_symboltable(symtab, c->value.string,Array, c->type,  c->line_number);
 					typecheck(n, symtab);
-					n->left_child->right_sibling->value.int_value = evaluate(n->left_child->right_sibling);
+					if (n->left_child->right_sibling != NULL){
+						//printf("Evaluating");
+						n->left_child->right_sibling->value.int_value = evaluate(n->left_child->right_sibling);
 					idtype(n->left_child->node_type, t);
-					printf("var name: %s, type: %s, size %d\n", c->value.string , t, n->left_child->right_sibling->value.int_value);
+					//	printf("var name: %s, type: %s, size %d\n", c->value.string , t, n->left_child->right_sibling->value.int_value);
+					}
+					else//printf("var name: %s, type: %s, size unknown as it is a parameter\n", c->value.string , t);
 
 					break;
 			}

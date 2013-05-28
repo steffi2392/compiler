@@ -160,12 +160,13 @@ formalList : formalParam {
 | formalList ',' formalParam {
   /*ast_node params = create_ast_node(PARAMS, lineNumber);*/
   ast_node t = $1;
+  ast_node orig = $1;
   if (t != NULL) {
     while (t->right_sibling != NULL)
       t = t->right_sibling;
     t->right_sibling = $3;
     /*params->left_child = t;*/
-    $$ = t;
+    $$ = orig;
   }
  }
 /*| error ',' formalParam {$$ = NULL;}*/

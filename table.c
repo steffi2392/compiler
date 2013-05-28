@@ -16,7 +16,8 @@ table create_table(){
 
 char* add_id(table t, char *id){
   if(t->num >= t->capacity) {
-    t = (table) realloc(t, t->capacity * 2 * sizeof(char*)); 
+     t->id_list = (char**) realloc(t->id_list, t->capacity * 2 * sizeof(char*)); 
+   // t = (table) realloc(t, t->capacity * 2 * sizeof(char*)); 
     t->capacity *= 2; 
   }
 
