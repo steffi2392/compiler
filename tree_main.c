@@ -31,9 +31,9 @@ int main(){
 
   if (haveRoot == 0){
     print_ast(root, 0);
-    traverse(root, symtab);
-    //    generate_traverse(root); 
-    //print_code(root->code); 
+    //traverse(root, symtab);
+    generate_traverse(root); 
+    print_code(root->code); 
   }
 
   return 0; 

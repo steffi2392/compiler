@@ -61,8 +61,8 @@ static char* opcode_table[] = {"assn", "array_assn", "add", "sub", "mult", "divi
 			       "enter", "leave", "ifFalse", "jumpTo", "read", 
 			       "print", "rtrn", "get_rtrn", "func_dec", "goto_sub", 
 			       "exit_sub", "push", "pop", "vardec", "pardec", 
-			       "array_lkup", "halt", "end", "whileloop", "forloop", 
-                               "dowhileloop"}; 
+			       "array_lkup", "halt", "end", "whileloop", "end_whileloop", 
+			       "forloop", "end_forloop", "dowhileloop", "end_dowhileloop"}; 
 
 /* create a quad with a given opcode and return a pointer 
    to it.  Initializes all addresses to NULL */
@@ -701,6 +701,10 @@ static void process_while(ast_node node){
     add_quad_list(node, node->left_child->right_sibling->code); 
   }
 
+  // mark the end of the body
+  quad end_while = create_quad(end_whileloop); 
+  add_quad(node, end_while); 
+
   // create the jumpTo quad that takes you back to the condition
   // and add it to the code
   quad back_to_condition = create_quad(jumpTo); 
@@ -724,6 +728,9 @@ static void process_dowhile(ast_node node){
   add_quad_list(node, node->left_child->code); 
   int beginning = node->code->first->next->num;
   
+  quad end_loop = create_quad(end_dowhileloop); 
+  add_quad(node, end_loop); 
+
   // add the code for the condition
   add_quad_list(node, node->left_child->right_sibling->code); 
 

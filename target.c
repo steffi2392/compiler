@@ -578,6 +578,166 @@ static void process_get_rtrn(quad q, int num_params, int rtrn_type){
   ro_instruction("ADD", 6, 5, 1, 0); 
 }
 
+/* (whileloop, null, null, null)
+ * (condition, target, arg1, arg2)
+ * (ifFalse, target, go here, null)
+ * ... 
+ * (jumpTo, start of condition, null, null)
+ */ 
+static void process_whileloop(quad q, int *offset_from_fp){
+  int condition_loc = instruction_pos; 
+  symnode result_node; 
+
+  q = q->next; 
+
+  // 1. process the condition while it's not lt, gt, etc. 
+  while (q->opcode != end_whileloop){
+    process_quad(q, offset_from_fp); 
+    q = q->next; 
+  }
+  q = q->next; 
+
+  // 2. process the logic and the ifFalse
+  while (q->opcode != ifFalse){
+    process_logic(q, offset_from_fp);
+    q = q->next;
+  }
+
+  // get the target offset
+  int level; 
+  symnode target = lookup_in_symbol_table(symtab, q->address1, Var, &level); 
+  int target_offset = target->offset; 
+
+  // The next command will be to jump ifFalse, but we don't know where 
+  // to go yet!
+  int ifFalse_pos = instruction_pos; 
+  instruction_pos += 3; // ifFalse takes 3 operations to execute 
+
+  // 3. process the loop
+  while (q->opcode != jumpTo){
+    process_quad(q); 
+    q = q->next; 
+  }
+
+  // 4. process the jump
+  rm_instruction("LDC", 0, 0, 0, 0); 
+  rm_instruction("LDC", 1, condition_loc, 0, 0); 
+  rm_instruction("JEQ", 0, 0, 1, 0); 
+
+  // 5. Go back and write ifFalse
+  rm_instruction("LD", 0, target_offset, 5, 0);
+  rm_instruction("LDC", 1, ifFalse_pos, 0, 0); 
+  rm_instruction("JEQ", 0, 0, 1, 0); 
+}
+
+/* (dowhileloop, null, null, null)
+ * ... body ... 
+ * (end_dowhileloop, null, null, null)
+ * (logic, target, arg1, arg2)
+ * (ifFalse, target, go here, null)
+ * (jumpTo, here, null, null)
+ */ 
+static void process_dowhileloop(quad q, int *offset_from_fp){
+  q = q->next; 
+
+  // 1. process loop body
+  int beginning = instruction_pos; 
+  while (q->opcode != end_dowhileloop){
+    process_quad(q, offset_from_fp); 
+    q = q->next; 
+  }
+  q = q->next; 
+
+  // 2. process logic
+  while (q->opcode != ifFalse){
+    process_quad(q, offset_from_fp); 
+    q = q->next; 
+  }
+
+  // get the target offset
+  int level;
+  symnode target = lookup_in_symbol_table(symtab, q->address1, Var, &level);
+  int target_offset = target->offset;
+
+  // 3. process ifFalse (just jump over the next instruction)
+  rm_instruction("LD", 0, target_offset, 5, 0); 
+  rm_instruction("LDC", 1, instruction_pos + 3, 0, 0);
+  rm_instruction("JEQ", 0, 0, 1, 0); 
+
+  // 4. process unconditional jump
+  rm_instruction("LDC", 0, 0, 0, 0); 
+  rm_instruction("LDC", 1, beginning, 0, 0); 
+  rm_instruction("JEQ", 0, 0, 1, 0); 
+}
+
+/* (logic, target, arg1, arg2) */ 
+static void process_logic(quad q, int *offset_from_fp){
+  int type; 
+  
+  // R0 = arg1 - arg2
+  if (q->opcode > 12 && q->opcode < 22){
+    // it's a double!
+    type = Double; 
+    load_float_arg(q->address2, 0); 
+    load_float_arg(q->address3, 1); 
+    ro_instruction("SUBF", 0, 0, 1, 0); 
+  }
+  else{
+    // it's an int!
+    type = Int; 
+    load_arg(q->address2, 0); 
+    load_arg(q->address3, 1); 
+    ro_instruction("SUB", 0, 0, 1, 0); 
+  }
+
+  // target = 1
+  target = insert_into_symboltable(symtab, q->address1, Var, Int, 0); 
+  target->offset = *offset_from_fp; 
+  *offset_from_fp += 8; 
+
+  // store true into proper spot (at R6) then increment R6
+  rm_instruction("LDC", 0, 1, 0, 0); 
+  rm_instruction("ST", 0, 0, 6, 0); 
+  increment_reg(6, 8); 
+
+  // At this point, target = 1.  Now change it to 0 in the appropriate
+  // circumstances, depending on what logical operator it is. 
+  switch (q->opcode){
+  case eq:
+    rm_instruction("JEQ", 0, 1, 7, 0); 
+  case neq:
+    rm_instruction("JNE", 0, 1, 7, 0); 
+  case lt:
+    rm_instruction("JLT", 0, 1, 7, 0); 
+  case leq:
+    rm_instruction("JLE", 0, 1, 7, 0); 
+  case gt:
+    rm_instruction("JGT", 0, 1, 7, 0); 
+  case geq:
+    rm_instruction("JGE", 0, 1, 7, 0); 
+  case f_eq:
+    rm_instruction("JFEQ", 0, 1, 7, 0); 
+  case f_neq:
+    rm_instruction("JFNE", 0, 1, 7, 0); 
+  case f_lt:
+    rm_instruction("JFLT", 0, 1, 7, 0); 
+  case f_leq:
+    rm_instruction("JFLE", 0, 1, 7, 0); 
+  case f_gt:
+    rm_instruction("JFGT", 0, 1, 7, 0); 
+  case f_geq:
+    rm_instruction("JFGE", 0, 1, 7, 0); 
+  }  
+
+  // Then assign target = 0 (the previous lines will jump over this if it was true. 
+  rm_instruction("LDC", 0, 0, 0, 0); 
+  rm_instruction("ST", 0, target->offset, 5, 0); 
+}
+
+static void not_logic(int opcode){
+  return (opcode < 7 || (opcode > 12 && opcode < 18) || opcode > 23); 
+}
+
 // writes a string to a file
 static void write(char * string){
   fprintf(file, "%s", string); 
