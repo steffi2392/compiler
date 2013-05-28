@@ -200,9 +200,9 @@ void scopecheck(ast_node parent, symboltable symtab){
 types typecheck(ast_node parent, symboltable symtab){
 	printf("begin checking node type %s\n",  token_table[parent->node_type].token);
 
-	if (parent->node_type == INT_LITERAL)
+	if (parent->node_type == INT_LITERAL || parent->node_type == INT_TYPE)
 		return Int;
-	if (parent->node_type == DOUBLE_LITERAL)
+	if (parent->node_type == DOUBLE_LITERAL || parent->node_type == DOUBLE_TYPE)
 		return Double;
 	if (parent->node_type ==IDENT) {
 		int level;
@@ -257,6 +257,7 @@ types typecheck(ast_node parent, symboltable symtab){
 		}
 	}
 	
+	
 	if (parent->node_type == ARRAY){
 		int level;
 		symnode orig = lookup_in_symboltable(symtab, parent->left_child->value.string, Array,&level);
@@ -292,8 +293,8 @@ types typecheck(ast_node parent, symboltable symtab){
 		printf("Comparing Args to Parameters\n");
 		
 		while(params != NULL && args != NULL ){
-			types t1 = typecheck(params, symtab);
-			types t2 = typecheck(args, symtab);
+		  types t1 = typecheck(params, symtab);
+		  types t2 = typecheck(args, symtab);
 			
 			printf("pair:Params has type %d, args has type %d\n" , t1, t2);
 			if(t1 != t2){
