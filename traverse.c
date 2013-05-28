@@ -294,6 +294,8 @@ types typecheck(ast_node parent, symboltable symtab){
 		while(params != NULL && args != NULL ){
 			types t1 = typecheck(params, symtab);
 			types t2 = typecheck(args, symtab);
+			
+			printf("pair:Params has type %d, args has type %d\n" , t1, t2);
 			if(t1 != t2){
 				fprintf(stderr, "Type mismatch while calling function %s\n", orig->name);
 				exit(1);
@@ -342,7 +344,7 @@ void traverse(ast_node parent, symboltable symtab){
 	
 	else if (parent-> node_type == FUNCDEC){
 		ast_node n = parent->left_child->right_sibling;
-		symnode func_name = insert_into_symboltable(symtab, n->value.string, Function, n->type, n->line_number);
+		symnode func_name = insert_into_symboltable(symtab, n->value.string, Function, parent->left_child->type, n->line_number);
 		printf("Entering the scope of function %s\n", n->value.string);
 		enter_scope(symtab);
 		ast_node params = parent->left_child->right_sibling->right_sibling;
