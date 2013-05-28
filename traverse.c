@@ -340,8 +340,9 @@ void traverse(ast_node parent, symboltable symtab){
 	else if (parent-> node_type == FUNCDEC){
 		ast_node n = parent->left_child->right_sibling;
 		symnode func_name = insert_into_symboltable(symtab, n->value.string, Function, n->type, n->line_number);
+		printf("Entering the scope of function %s\n", n->value.string);
 		enter_scope(symtab);
-		ast_node params = parent->left_child;
+		ast_node params = parent->left_child->right_sibling->right_sibling;
 		ast_node body = params->right_sibling;
 		traverse (params, symtab);
 		traverse(body, symtab);
