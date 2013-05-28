@@ -9,6 +9,8 @@
 
 static void test1(); 
 static void while_test(); 
+static void dowhile_test(); 
+static void if_test(); 
 
 //extern int yyparse(); 
 extern int yydebug; 
@@ -17,8 +19,10 @@ extern int yydebug;
 //symboltable symtab;
 
 int main(){
-  test1(); 
-
+  //  test1(); 
+  //  while_test(); 
+  //  dowhile_test(); 
+  if_test(); 
 }
 
 /* int x; 
@@ -66,9 +70,113 @@ static void while_test(){
   add_to_code(code, create_full_quad(vardec, "int", "x", NULL)); 
   add_to_code(code, create_full_quad(func_dec, "int", "main", NULL)); 
   add_to_code(code, create_full_quad(enter, NULL, NULL, NULL)); 
-  add_to_code(code, create_full_quad(vardec, "int", NULL, NULL)); 
+  add_to_code(code, create_full_quad(vardec, "int", "y", NULL));
+  add_to_code(code, create_full_quad(assn, "y", "1", NULL)); 
+  add_to_code(code, create_full_quad(whileloop, NULL, NULL, NULL)); 
   add_to_code(code, create_full_quad(lt, "t0", "y", "5")); 
+  add_to_code(code, create_full_quad(ifFalse, "t0", "14", NULL)); 
+  add_to_code(code, create_full_quad(enter, NULL, NULL, NULL)); 
+  add_to_code(code, create_full_quad(mult, "t1", "y", "2")); 
+  add_to_code(code, create_full_quad(assn, "x", "t1", NULL)); 
+  add_to_code(code, create_full_quad(add, "t2", "y", "1")); 
+  add_to_code(code, create_full_quad(assn, "y", "t2", NULL)); 
+  add_to_code(code, create_full_quad(leave, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(end_whileloop, NULL, NULL, NULL)); 
+  add_to_code(code, create_full_quad(jumpTo, "3", NULL, NULL)); 
+  add_to_code(code, create_full_quad(assn, "x", "3", NULL)); 
+  add_to_code(code, create_full_quad(leave, NULL, NULL, NULL)); 
+  add_to_code(code, create_full_quad(exit_sub, NULL, NULL, NULL)); 
+  add_to_code(code, create_full_quad(halt, NULL, NULL, NULL)); 
+  add_to_code(code, create_full_quad(end, NULL, NULL, NULL)); 
 
   print_code(code); 
   generate_target(code); 
+}
+
+static void dowhile_test(){
+  quad_list code = create_quad_list();
+
+  add_to_code(code, create_full_quad(vardec, "int", "x", NULL));
+  add_to_code(code, create_full_quad(func_dec, "int", "main", NULL));
+  add_to_code(code, create_full_quad(enter, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(vardec, "int", "y", NULL));
+  add_to_code(code, create_full_quad(assn, "y", "1", NULL));
+  add_to_code(code, create_full_quad(dowhileloop, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(enter, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(mult, "t0", "y", "2"));
+  add_to_code(code, create_full_quad(assn, "x", "t0", NULL));
+  add_to_code(code, create_full_quad(leave, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(end_dowhileloop, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(lt, "t1", "y", "5"));
+  add_to_code(code, create_full_quad(ifFalse, "t1", "12", NULL));
+  add_to_code(code, create_full_quad(jumpTo, "5", NULL, NULL));
+  add_to_code(code, create_full_quad(assn, "x", "3", NULL));
+  add_to_code(code, create_full_quad(leave, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(exit_sub, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(halt, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(end, NULL, NULL, NULL));
+
+  print_code(code);
+  generate_target(code);
+}
+
+static void if_test(){
+  quad_list code = create_quad_list();
+
+  add_to_code(code, create_full_quad(vardec, "int", "x", NULL));
+  add_to_code(code, create_full_quad(func_dec, "int", "main", NULL));
+  add_to_code(code, create_full_quad(enter, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(vardec, "int", "y", NULL));
+  add_to_code(code, create_full_quad(assn, "y", "1", NULL));
+  add_to_code(code, create_full_quad(ifstmt, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(lt, "t0", "y", "5"));
+  add_to_code(code, create_full_quad(ifFalse, "t0", "13", NULL));
+  add_to_code(code, create_full_quad(enter, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(mult, "t1", "y", "2"));
+  add_to_code(code, create_full_quad(assn, "x", "t1", NULL));
+  add_to_code(code, create_full_quad(add, "t2", "y", "1")); 
+  add_to_code(code, create_full_quad(assn, "y", "t2", NULL)); 
+  add_to_code(code, create_full_quad(leave, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(end_ifstmt, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(assn, "x", "3", NULL));
+  add_to_code(code, create_full_quad(leave, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(exit_sub, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(halt, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(end, NULL, NULL, NULL));
+
+  print_code(code);
+  generate_target(code);
+}
+
+static void ifelse_test(){
+  quad_list code = create_quad_list();
+
+  add_to_code(code, create_full_quad(vardec, "int", "x", NULL)); 
+  add_to_code(code, create_full_quad(func_dec, "int", "main", NULL));
+  add_to_code(code, create_full_quad(enter, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(vardec, "int", "y", NULL)); 
+  add_to_code(code, create_full_quad(assn, "y", "1", NULL)); 
+  add_to_code(code, create_full_quad(ifelse, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(lt, "t0", "y", "5"));
+  add_to_code(code, create_full_quad(ifFalse, "t0", "16", NULL));
+  add_to_code(code, create_full_quad(enter, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(add, "t1", "y", "1"));
+  add_to_code(code, create_full_quad(assn, "y", "t1", NULL));
+  add_to_code(code, create_full_quad(leave, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(end_ifstmt, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(jumpTo, "18", NULL, NULL)); 
+  add_to_code(code, create_full_quad(elsestmt, NULL, NULL, NULL)); 
+  add_to_code(code, create_full_quad(enter, NULL, NULL, NULL)); 
+  add_to_code(code, create_full_quad(divide, "t2", "y", "5")); 
+  add_to_code(code, create_full_quad(assn, "y", "t2", NULL)); 
+  add_to_code(code, create_full_quad(leave, NULL, NULL, NULL)); 
+  add_to_code(code, create_full_quad(end_elsestmt, NULL, NULL, NULL)); 
+  add_to_code(code, create_full_quad(assn, "x", "3", NULL));
+  add_to_code(code, create_full_quad(leave, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(exit_sub, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(halt, NULL, NULL, NULL));
+  add_to_code(code, create_full_quad(end, NULL, NULL, NULL));
+
+  print_code(code);
+  generate_target(code);
 }

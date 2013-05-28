@@ -14,10 +14,12 @@
 /* opcodes for the quads */ 
 typedef enum {assn, array_assn, add, sub, mult, divide, mod, eq, neq, lt, leq, gt, 
 	      geq, f_add, f_sub, f_mult, f_divide, f_mod, f_eq, f_neq, f_lt, f_leq, 
-	      f_gt, f_geq, and, or, not, enter, leave, ifFalse, jumpTo, read, print, 
+	      f_gt, f_geq, and, end_and, or, end_or, not, end_not, 
+	      enter, leave, ifFalse, jumpTo, read, print, 
               rtrn, get_rtrn, func_dec, goto_sub, exit_sub, push, pop, vardec, 
               pardec, array_lkup, halt, end, whileloop, end_whileloop, forloop, 
-	      end_forloop, dowhileloop, end_dowhileloop, ifstmt, end_ifstmt} opcode_type; 
+	      end_forloop, dowhileloop, end_dowhileloop, ifstmt, end_ifstmt, 
+              ifelse, elsestmt, end_elsestmt} opcode_type; 
 
 /* Structure for a quad. Knows its opcode and up to 3 addresses - these are strings
    which can then be looked up in the symbol table. It also knows its next and

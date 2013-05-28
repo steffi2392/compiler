@@ -57,13 +57,13 @@ static char* opcode_table[] = {"assn", "array_assn", "add", "sub", "mult", "divi
 			       "mod", "eq", "neq", "lt", "leq", 
 			       "gt", "geq", "f_add", "f_sub", "f_mult", "f_divide",
 			       "f_mod", "f_eq", "f_neq", "f_lt", "f_leq", 
-			       "f_gt", "f_geq", "and", "or", "not", 
-			       "enter", "leave", "ifFalse", "jumpTo", "read", 
+			       "f_gt", "f_geq", "and", "end_and",  "or", "end_or", 
+			       "not", "end_not", "enter", "leave", "ifFalse", "jumpTo", "read", 
 			       "print", "rtrn", "get_rtrn", "func_dec", "goto_sub", 
 			       "exit_sub", "push", "pop", "vardec", "pardec", 
 			       "array_lkup", "halt", "end", "whileloop", "end_whileloop", 
 			       "forloop", "end_forloop", "dowhileloop", "end_dowhileloop", 
-                               "ifstmt", "end_ifstmt"}; 
+                               "ifstmt", "end_ifstmt", "ifelse", "elsestmt", "end_elsestmt"}; 
 
 /* create a quad with a given opcode and return a pointer 
    to it.  Initializes all addresses to NULL */
@@ -447,10 +447,12 @@ static void process_math(ast_node node){
   // get left argument     
   char * left = process_left(node);  
   
-  // get right argument         
-  char * right = process_right(node);       
+  // get right argument (if it's not OP_NOT)
+  char * right = NULL; 
+  if (node->node_type != OP_NOT)
+    right = process_right(node);
   
-  if (new_quad != NULL && target != NULL && left != NULL && right != NULL){                
+  if (new_quad != NULL && target != NULL && left != NULL){                
     build_code(node, new_quad, target, left, right);  
   }            
   else {  
@@ -654,6 +656,10 @@ static void process_ifelse(ast_node node){
   char * loc = strdup(node->left_child->location);
   if_quad->address1 = loc;
 
+  // indicate that it's an ifelse
+  quad ifelse_quad = create_quad(ifelse); 
+  add_quad(node, ifelse_quad); 
+
   // add the code for the condition     
   add_quad_list(node, node->left_child->code);
 
@@ -665,14 +671,26 @@ static void process_ifelse(ast_node node){
     add_quad_list(node, node->left_child->right_sibling->code);
   }
 
+  // if part is over
+  quad end_if_quad = create_quad(end_ifstmt); 
+  add_quad(node, end_if_quad); 
+
   // do the goto
   quad jump_quad = create_quad(jumpTo); 
   add_quad(node, jump_quad); 
   
+  // if part is starting
+  quad else_quad = create_quad(elsestmt); 
+  add_quad(node, else_quad); 
+
   // add the else compound
   if (node->left_child->right_sibling->right_sibling != NULL){
     add_quad_list(node, node->left_child->right_sibling->right_sibling->code); 
   }
+
+  // else part is over
+  quad end_else = create_quad(end_elsestmt); 
+  add_quad(node, end_else); 
   
   // Backpatch if_false
   int ifFalse_backpatch = jump_quad->next->num; 
@@ -763,6 +781,9 @@ static void process_dowhile(ast_node node){
 }
 
 static void process_and(ast_node node){
+  quad and_quad = create_quad(and); 
+  add_quad(node, and_quad); 
+
   // address the value of the and will be stored here: 
   char * and_address = new_address(); 
   node->location = and_address; 
@@ -806,9 +827,15 @@ static void process_and(ast_node node){
   buffer = malloc(10); 
   sprintf(buffer, "%d", short_circuit); 
   if_false->address2 = buffer; 
+
+  quad end_and_quad = create_quad(end_and); 
+  add_quad(node, end_and_quad); 
 }
 
 static void process_or(ast_node node){
+  quad or_quad = create_quad(or);
+  add_quad(node, or_quad); 
+
   // the value of the OR will be stored here: 
   char * or_address = new_address(); 
   node->location = or_address; 
@@ -861,6 +888,9 @@ static void process_or(ast_node node){
   buffer = malloc(10); 
   sprintf(buffer, "%d", num_quads); 
   done_jump->address1 = buffer; 
+
+  quad end_or_quad = create_quad(end_or); 
+  add_quad(node, end_or_quad); 
 }
 
 /* Handles START, CONDITION, and UPDATE of a for-loop, 
