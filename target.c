@@ -221,7 +221,7 @@ static quad process_funcdec(quad q){
   // write the jump to main command if this is the main function
   if (strcmp(q->address2, "main") == 0){
     printf("FOUND MAIN\n"); 
-    rm_instruction("LDC", 7, instruction_pos * 4, 0, jump_to_main); 
+    rm_instruction("LDC", 7, instruction_pos, 0, jump_to_main); 
   }
   
   // figure out function return type
@@ -402,7 +402,7 @@ static void process_return(quad q, int rtrn_val_type){
   }
 
   // now pop everything off the stack. After this, R6 will be pointing to old R5
-  rm_instruction("LD", 6, -8, 5, 0);
+  rm_instruction("LDA", 6, -8, 5, 0);
 
   // LD 7, -24(5) to get old R7
   rm_instruction("LD", 7, -24, 5, 0); 
