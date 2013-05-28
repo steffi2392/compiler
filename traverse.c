@@ -316,6 +316,9 @@ types typecheck(ast_node parent, symboltable symtab){
 	//String literals only show up in print statements.
 	if (parent->node_type == STRING_LIT)
 		return Void;
+		
+	if (parent->node_type == RETURN_STMT)
+		return typecheck(parent->left_child, symtab);
 	
 	
 }
@@ -362,7 +365,7 @@ void traverse(ast_node parent, symboltable symtab){
 					// If an ID is found, the ast node has all the information needed to populate the symtable
 				case IDENT:
 					insert_into_symboltable(symtab, n->value.string, Var, n->type, n->line_number);
-					idtype(n->node_type, t);
+					datatype(n->type, t);
 					printf("var name: %s, type: %s\n", n->value.string, t );
 
 					break;
@@ -372,7 +375,7 @@ void traverse(ast_node parent, symboltable symtab){
 					insert_into_symboltable(symtab, c->value.string, Var, c->type,  n->line_number);
 					scopecheck(n->left_child->right_sibling, symtab);
 					typecheck(n, symtab);
-					idtype(n->left_child->node_type, t);
+					datatype(n->left_child->type, t);
 					printf("var name: %s, type: %s\n", c->value.string , t);
 					break;
 	

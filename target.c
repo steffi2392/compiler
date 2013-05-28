@@ -2,11 +2,11 @@
  * Makes target code from quads
  */ 
 
-#import <stdlib.h>
-#import <stdio.h>
-#import <string.h>
-#import "intermediate.h"
-#import "symtab.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include "intermediate.h"
+#include "symtab.h"
 
 #define MAX_BUFFER 200 
 

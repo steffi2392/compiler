@@ -2,11 +2,11 @@
  * generates intermediate code given an AST
  */ 
 
-#import <stdlib.h>
-#import <stdio.h>
-#import <string.h> 
-#import "ast.h" 
-#import "intermediate.h" 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h> 
+#include "ast.h" 
+#include "intermediate.h" 
 
 /* Prototypes */ 
 //static void generate_traverse(ast_node node, quad_list inter_code); 
