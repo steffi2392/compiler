@@ -76,7 +76,7 @@ static struct token_lookup token_table[] = {
 
 int evaluate(ast_node expression){
 	ast_node_type t = expression->node_type;
-	if (expression = NULL)
+	if (expression == NULL)
 		return -1;
 	if (t == IDENT || t==CALL || t==OP_INC || t==OP_DEC || t==ARRAY){
 		fprintf(stderr, "Variable sized arrays are not supported. Error at line %d\n", expression->line_number);
@@ -141,7 +141,6 @@ int evaluate(ast_node expression){
 		else expression->value.int_value = 0;
 	}
 
-		
 	return expression -> value.int_value;
 }
 
@@ -178,8 +177,11 @@ void scopecheck(ast_node parent, symboltable symtab){
 		int level;
 		symnode orig = lookup_in_symboltable(symtab, parent->value.string, Var,&level);
 		if (orig == NULL){
-			fprintf(stderr, "Undeclared variable %s on line %d", parent->value.string, parent->line_number);
-			exit(1);
+			orig = lookup_in_symboltable(symtab, parent->value.string, Array,&level);
+			if (orig == NULL){
+				fprintf(stderr, "Undeclared variable %s on line %d", parent->value.string, parent->line_number);
+				exit(1);
+			}
 		}
 	}
 	
