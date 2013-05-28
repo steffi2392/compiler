@@ -76,7 +76,8 @@ static struct token_lookup token_table[] = {
 
 int evaluate(ast_node expression){
 	ast_node_type t = expression->node_type;
-
+	if (expression = NULL)
+		return -1;
 	if (t == IDENT || t==CALL || t==OP_INC || t==OP_DEC || t==ARRAY){
 		fprintf(stderr, "Variable sized arrays are not supported. Error at line %d\n", expression->line_number);
 		exit(1);
@@ -268,10 +269,13 @@ types typecheck(ast_node parent, symboltable symtab){
 
 		printf("observing node %s, with node type %s and data type %s", orig->name, t, d);
 		types type1 = orig->data_type;
-		types type2 = typecheck(parent->left_child->right_sibling, symtab);
-		if(type2 != Int){
-			fprintf(stderr, "Indexing Error on line %d, Use Integer index", parent->line_number);
-			exit(1);
+		if (parent->left_child->right_sibling != NULL){
+			types type2 = typecheck(parent->left_child->right_sibling, symtab);
+			if(type2 != Int){
+				fprintf(stderr, "Indexing Error on line %d, Use Integer index", parent->line_number);
+				exit(1);
+			}
+			else return type1;
 		}
 		else return type1;
 	}
