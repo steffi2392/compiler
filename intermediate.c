@@ -61,7 +61,8 @@ static char* opcode_table[] = {"assn", "array_assn", "add", "sub", "mult", "divi
 			       "enter", "leave", "ifFalse", "jumpTo", "read", 
 			       "print", "rtrn", "get_rtrn", "func_dec", "goto_sub", 
 			       "exit_sub", "push", "pop", "vardec", "pardec", 
-			       "array_lkup", "halt", "end"}; 
+			       "array_lkup", "halt", "end", "whileloop", "forloop", 
+                               "dowhileloop"}; 
 
 /* create a quad with a given opcode and return a pointer 
    to it.  Initializes all addresses to NULL */
@@ -685,6 +686,10 @@ static void process_while(ast_node node){
   // the condition. 
   int start_of_condition = node->left_child->code->first->num; 
   
+  // indicate that it's a while loop
+  quad while_quad = create_quad(whileloop); 
+  add_quad(node, while_quad); 
+
   // add the code for the condition
   add_quad_list(node, node->left_child->code); 
   
@@ -711,9 +716,13 @@ static void process_while(ast_node node){
 }
 
 static void process_dowhile(ast_node node){
+  // indicate that its a dowhile loop
+  quad dowhile_quad = create_quad(dowhileloop); 
+  add_quad(node, dowhile_quad); 
+
   // add the compound (body of dowhile loop)
   add_quad_list(node, node->left_child->code); 
-  int beginning = node->code->first->num;
+  int beginning = node->code->first->next->num;
   
   // add the code for the condition
   add_quad_list(node, node->left_child->right_sibling->code); 
@@ -847,6 +856,10 @@ static void process_for_header(ast_node node){
 }
 
 static void process_for(ast_node node){
+  // indicate that it's a for-loop
+  quad for_quad = create_quad(forloop); 
+  add_quad(node, for_quad); 
+
   // add start and condition code
   add_quad_list(node, node->left_child->code); 
   add_quad_list(node, node->left_child->right_sibling->code); 
