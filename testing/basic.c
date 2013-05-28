@@ -1,17 +1,24 @@
 
 int a;
-double b[4];
+double b[3 + 1];
 
 int f(){
 
-  b[2] = a + 3; 
-  a = b[3] + 5; 
-
+  b[2] = 3.0; 
   print "hello"; 
 }
 
+int loop(int a, double b){
+  int i;
+  double x;
+  for (i=0; i < 5; i = i + 1){
+    x = x + 1;
+  }
+  return 1 + 2 + 3;
+}
+
 int main(){
-  double x = f();
+  int x = f();
   int i; 
   for (i =0; i < 5; i = i+1){
     x = 1; 
@@ -23,14 +30,6 @@ int main(){
   read x; 
   print x + 5; 
 
-  loop(1+2, 3); 
+  loop(1+2, 3.0); 
 }
 
-int loop(int a, double b){
-  int i;
-  double x; 
-  for (i=0; i < 5; i = i + 1){
-    x = x + 1; 
-  }
-  return 1 + 2 + 3; 
-}

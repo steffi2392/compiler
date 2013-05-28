@@ -17,7 +17,7 @@ typedef enum {assn, array_assn, add, sub, mult, divide, mod, eq, neq, lt, leq, g
 	      f_gt, f_geq, and, or, not, enter, leave, ifFalse, jumpTo, read, print, 
               rtrn, get_rtrn, func_dec, goto_sub, exit_sub, push, pop, vardec, 
               pardec, array_lkup, halt, end, whileloop, end_whileloop, forloop, 
-	      end_forloop, dowhileloop, end_dowhileloop} opcode_type; 
+	      end_forloop, dowhileloop, end_dowhileloop, ifstmt, end_ifstmt} opcode_type; 
 
 /* Structure for a quad. Knows its opcode and up to 3 addresses - these are strings
    which can then be looked up in the symbol table. It also knows its next and

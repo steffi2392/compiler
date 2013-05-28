@@ -62,7 +62,8 @@ static char* opcode_table[] = {"assn", "array_assn", "add", "sub", "mult", "divi
 			       "print", "rtrn", "get_rtrn", "func_dec", "goto_sub", 
 			       "exit_sub", "push", "pop", "vardec", "pardec", 
 			       "array_lkup", "halt", "end", "whileloop", "end_whileloop", 
-			       "forloop", "end_forloop", "dowhileloop", "end_dowhileloop"}; 
+			       "forloop", "end_forloop", "dowhileloop", "end_dowhileloop", 
+                               "ifstmt", "end_ifstmt"}; 
 
 /* create a quad with a given opcode and return a pointer 
    to it.  Initializes all addresses to NULL */
@@ -618,26 +619,34 @@ static void process_cmpd(ast_node node){
 }
 
 static void process_if(ast_node node){
-  quad if_quad = create_quad(ifFalse); 
+  quad ifFalse_quad = create_quad(ifFalse); 
   char * loc = strdup(node->left_child->location); 
-  if_quad->address1 = loc; 
+  ifFalse_quad->address1 = loc; 
+
+  // indicate that this is an if-statement
+  quad if_false = create_quad(ifstmt); 
+  add_quad(node, if_false); 
 
   // add the code for the condition
   add_quad_list(node, node->left_child->code); 
 
   // add the ifFalse quad
-  add_quad(node, if_quad); 
+  add_quad(node, ifFalse_quad); 
 
   // add the compound 
   if (node->left_child->right_sibling != NULL){
     add_quad_list(node, node->left_child->right_sibling->code); 
   }
 
+  // indicate that the if ends here
+  quad if_end = create_quad(end_ifstmt); 
+  add_quad(node, if_end); 
+
   // Backpatch if_quad by filling in the number of the quad it should go to
   // if it is false. 
   char * buffer = malloc(10); 
   sprintf(buffer, "%d", num_quads); 
-  if_quad->address2 = buffer; 
+  ifFalse_quad->address2 = buffer; 
 }
 
 static void process_ifelse(ast_node node){
@@ -863,12 +872,14 @@ static void process_for_header(ast_node node){
 }
 
 static void process_for(ast_node node){
-  // indicate that it's a for-loop
-  quad for_quad = create_quad(forloop); 
-  add_quad(node, for_quad); 
-
   // add start and condition code
   add_quad_list(node, node->left_child->code); 
+
+  // indicate that it's a for-loop 
+  // while loops are the same thing, so pretend it's one! shhhh ... 
+  quad for_quad = create_quad(whileloop);
+  add_quad(node, for_quad);
+
   add_quad_list(node, node->left_child->right_sibling->code); 
   int cond_start = node->left_child->right_sibling->code->first->num; 
 
@@ -883,6 +894,9 @@ static void process_for(ast_node node){
   
   // add update code
   add_quad_list(node, node->left_child->right_sibling->right_sibling->code); 
+
+  quad end_for = create_quad(end_whileloop); 
+  add_quad(node, end_for); 
 
   // unconditional jump back to the condition
   quad jump = create_quad(jumpTo); 
@@ -996,6 +1010,8 @@ static void process_params(ast_node node){
  * Format: (vardec, type, name, NULL)
  */  
 static void process_vardec(ast_node node){
+  int assign; 
+
   if (node->left_child != NULL){
     quad vardec_quad = create_quad(vardec);
 
@@ -1005,23 +1021,35 @@ static void process_vardec(ast_node node){
     else if (node->node_type == DOUBLE_TYPE)
       vardec_quad->address1 = "double"; 
 
-    if (node->left_child->node_type != ARRAY){
-      vardec_quad->address2 = node->left_child->value.string; 
+    if (node->left_child->node_type == OP_ASSIGN){
+      vardec_quad->address2 = node->left_child->left_child->value.string; 
+      assign = 1; 
     }
 
     // process array declaration                                    
     else if (node->left_child->node_type == ARRAY){
-      // get the size of the array      
-      vardec_quad->address3 = process_right(node->left_child);
+      // get the size of the array
+      int size = node->left_child->left_child->right_sibling->value.int_value; 
+      printf("size: %d\n", size); 
+      char buffer[MAX_LEN];
+      snprintf(buffer, MAX_LEN, "%d", size);
+      vardec_quad->address3 = strdup(buffer);
 
       // get the name of the array     
       vardec_quad->address2 = process_left(node->left_child);
+    }
+    else {
+      vardec_quad->address2 = node->left_child->value.string; 
     }
 
     if (vardec_quad->address2 != NULL)
       node->location = strdup(vardec_quad->address2);
  
-    add_quad(node, vardec_quad);     
+    add_quad(node, vardec_quad);
+    if (assign){
+      add_quad_list(node, node->left_child->code); 
+    }
+
   }
 }
 
