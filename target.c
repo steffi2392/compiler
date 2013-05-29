@@ -575,9 +575,9 @@ static quad process_math(quad q, int *offset_from_fp, char * operation){
   ro_instruction(operation, 0, 0, 1, 0); 
 
   // store that value into proper spot (at R6)
-  //rm_instruction("ST", 0, 0, 6, -1); 
-  int reg = (level == 0) ? 4 : 5;
-  rm_instruction("ST", 0, result_node->offset, reg, -1); 
+  rm_instruction("ST", 0, 0, 6, -1); 
+  //int reg = (level == 0) ? 4 : 5;
+  //rm_instruction("ST", 0, result_node->offset, reg, -1); 
 
   // increment FP
   increment_reg(6, result_size); 
@@ -746,7 +746,7 @@ static quad process_get_rtrn(quad q, int *offset_from_fp, int rtrn_type){
   // 2. put R6 back to where it should be: R6 = R5 + num_params * 8 
   rm_instruction("LDC", 1, -8 -current_parnum * 8, 0, -1); 
   ro_instruction("ADD", 6, 6, 1, 0); 
-
+  current_parnum = 0;
   int level, reg; 
   symnode target = lookup_in_symboltable(symtab, q->address1, Var, &level); 
   
