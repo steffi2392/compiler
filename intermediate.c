@@ -729,8 +729,8 @@ static void process_while(ast_node node){
   }
 
   // mark the end of the body
-  quad end_while = create_quad(end_whileloop); 
-  add_quad(node, end_while); 
+  //  quad end_while = create_quad(end_whileloop); 
+  //add_quad(node, end_while); 
 
   // create the jumpTo quad that takes you back to the condition
   // and add it to the code
@@ -739,6 +739,10 @@ static void process_while(ast_node node){
   sprintf(buffer, "%d", start_of_condition); 
   back_to_condition->address1 = buffer; 
   add_quad(node, back_to_condition); 
+
+  // mark the end of the body        
+  quad end_while = create_quad(end_whileloop);
+  add_quad(node, end_while);
 
   // backpatch the ifFalse quad
   buffer = malloc(10); 
@@ -925,15 +929,15 @@ static void process_for(ast_node node){
   // add update code
   add_quad_list(node, node->left_child->right_sibling->right_sibling->code); 
 
-  quad end_for = create_quad(end_whileloop); 
-  add_quad(node, end_for); 
-
   // unconditional jump back to the condition
   quad jump = create_quad(jumpTo); 
   char * buffer = malloc(10); 
   sprintf(buffer, "%d", cond_start); 
   jump->address1 = buffer; 
   add_quad(node, jump); 
+
+  quad end_for = create_quad(end_whileloop);
+  add_quad(node, end_for);
 
   // backpatch the if_false quad
   buffer = malloc(10); 
@@ -948,9 +952,16 @@ static void process_read(ast_node node){
   printf("left: %s\n", left); 
   read_quad->address1 = left; 
 
-  if (node->left_child != NULL)
-    add_quad_list(node, node->left_child->code); 
   add_quad(node, read_quad); 
+
+  // if it's an array, assign temp to the array
+  if (node->left_child->left_child != NULL){
+    quad array_quad = create_quad(array_assn); 
+    array_quad->address1 = process_left(node->left_child); 
+    array_quad->address2 = process_right(node->left_child); 
+    array_quad->address3 = left; 
+    add_quad(node, array_quad); 
+  } 
 }
 
 // (rtrn, location, NULL, NULL); 

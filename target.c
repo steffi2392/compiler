@@ -18,7 +18,7 @@
 #define MAX_BUFFER 200 
 
 /* prototypes */
-static quad process_read(quad q); 
+static quad process_read(quad q, int *offset_from_fp); 
 static quad process_print(quad q, int *offset_from_fp); 
 static quad process_global(quad q);
 static quad process_vardec(quad q, int *offset_from_fp);  
@@ -31,7 +31,7 @@ static quad process_float_math(quad q, int *offset_from_fp, char * operation);
 static quad process_exitsub(quad q); 
 static quad process_push(quad q); 
 static quad process_call(quad q); 
-static quad process_get_rtrn(quad q, int num_params, int rtrn_type); 
+static quad process_get_rtrn(quad q, int *offset_from_fp, int rtrn_type); 
 static quad process_whileloop(quad q, int *offset_from_fp, int rtrn_type); 
 static quad process_dowhileloop(quad q, int *offset_from_fp, int rtrn_type); 
 static quad process_for(quad q, int *offset_from_fp, int rtrn_type); 
@@ -61,7 +61,8 @@ static double stof(char * string);
 int memory_pointer = 0; 
 int instruction_pos = 0; 
 int main_loc; 
-int jump_to_main; 
+int jump_to_main;
+int current_parnum; 
 symboltable symtab; 
 
 FILE *file; 
@@ -87,8 +88,8 @@ void generate_target(quad_list code){
   //  while (curr->opcode == vardec){
   while (curr->opcode != func_dec){ 
     printf("process_vardec\n"); 
-    process_global(curr); 
-    curr = curr->next; 
+    curr = process_global(curr); 
+    //curr = curr->next; 
   }
 
   // the next instruction should jump to main! record this.
@@ -112,6 +113,12 @@ void generate_target(quad_list code){
 // Check level to figure out if you're offsetting from R4 or R5 
 static quad process_global(quad q){
   int type; 
+  
+  if (q->opcode != vardec){
+	int filler;
+	q = process_quad(q, &memory_pointer, 0, &filler);
+	return q;
+}
   if (strcmp(q->address1, "int") == 0){
     type = 0; 
   }
@@ -131,7 +138,7 @@ static quad process_global(quad q){
     else{
       directive(".FLOAT", memory_pointer, 0); 
     }
-    rm_instruction("LDC", 0, 8, 0, 0);
+    rm_instruction("LDC", 0, 8, 0, -1);
     ro_instruction("ADD", 6, 6, 0, 0);
     memory_pointer += 8;
   }
@@ -149,7 +156,7 @@ static quad process_global(quad q){
 		else{
 			directive(".FLOAT", memory_pointer, 0); 
 		}
-		rm_instruction("LDC", 0, 8, 0, 0);
+		rm_instruction("LDC", 0, 8, 0, -1);
 		ro_instruction("ADD", 6, 6, 0, 0);
 		memory_pointer += 8;
 
@@ -177,11 +184,11 @@ static quad process_vardec(quad q, int *offset_from_fp){
 
     // store the value of 0 into memory at that slot, 
     // adjust SP and offset_from_fp appropriately.
-    rm_instruction("LDC", 0, 0, 0, 0); 
-    rm_instruction("ST", 0, node->offset, 5, 0); 
+    rm_instruction("LDC", 0, 0, 0, -1); 
+    rm_instruction("ST", 0, node->offset, 5, -1); 
 
     // Don't care what type it was! Everything offset 8. 
-    rm_instruction("LDC", 0, 8, 0, 0); 
+    rm_instruction("LDC", 0, 8, 0, -1); 
     ro_instruction("ADD", 6, 6, 0, 0); 
     *offset_from_fp += 8; 
     memory_pointer += 8; 
@@ -194,11 +201,11 @@ static quad process_vardec(quad q, int *offset_from_fp){
     ar->offset = *offset_from_fp;
 	size = stoi(q->address3);
 	while (size > 0){
-		rm_instruction("LDC", 0, 0, 0, 0); 
-		rm_instruction("ST", 0, *offset_from_fp, 5, 0); 
+		rm_instruction("LDC", 0, 0, 0, -1); 
+		rm_instruction("ST", 0, *offset_from_fp, 5, -1); 
 
 
-		rm_instruction("LDC", 0, 8, 0, 0);
+		rm_instruction("LDC", 0, 8, 0, -1);
 		ro_instruction("ADD", 6, 6, 0, 0);
 		*offset_from_fp+= 8;
 		memory_pointer += 8; 
@@ -222,28 +229,28 @@ static quad process_lkup(quad q, int *offset_from_fp){
 
     if (index != NULL){
       reg = (ind_lev == 0) ? 4 : 5; 
-      rm_instruction("LD", 0, index->offset, reg, 0); 
+      rm_instruction("LD", 0, index->offset, reg, -1); 
     }
     else {
       int constant = stoi(q->address3);
-      rm_instruction("LDC", 0, constant, 0, 0); 
+      rm_instruction("LDC", 0, constant, 0, -1); 
     }
 	
-	rm_instruction("LDC", 1, 8, 0, 0);
+	rm_instruction("LDC", 1, 8, 0, -1);
 	ro_instruction("MUL", 0, 1, 0, 0 );
 	
 	//Store the offset of the start of the array
-	rm_instruction("LDC", 1, array->offset, 0, 0);
+	rm_instruction("LDC", 1, array->offset, 0, -1);
 	// Add up the offset of the start with the offset of the index
 	ro_instruction("ADD", 0, 0 , 1, 0);
 	
 	reg = (level == 0) ? 4 : 5; // either global offset or FP 
-	rm_instruction("LDA", 2, 0, reg, 0);
+	rm_instruction("LDA", 2, 0, reg, -1);
 	ro_instruction("ADD", 2, 2, 0, 0);	
-	rm_instruction("LD", 2, 0, 2, 0);
+	rm_instruction("LD", 2, 0, 2, -1);
 	
 	// store that value into proper spot (at R6)
-	rm_instruction("ST", 2, 0, 6, 0); 
+	rm_instruction("ST", 2, 0, 6, -1); 
 
 	// increment FP
 	increment_reg(6, 8); 
@@ -260,39 +267,39 @@ static quad process_array_assignment(quad q){
 	
 	if (index != NULL){
       reg = (ind_lev == 0) ? 4 : 5; 
-      rm_instruction("LD", 0, index->offset, reg, 0); 
+      rm_instruction("LD", 0, index->offset, reg, -1); 
     }
     else {
 		printf("index is null");
 
       constant = stoi(q->address2);
-      rm_instruction("LDC", 0, constant, 0, 0); 
+      rm_instruction("LDC", 0, constant, 0, -1); 
     }
 	
-	rm_instruction("LDC", 1, 8, 0, 0);
+	rm_instruction("LDC", 1, 8, 0, -1);
 	ro_instruction("MUL", 0, 1, 0, 0 );
 	
 	symnode value = lookup_in_symboltable(symtab, q->address3, Var, &val_lev);
 	
     if (value != NULL){
       reg = (val_lev == 0) ? 4 : 5; 
-      rm_instruction("LD", 1, value->offset, reg, 0); 
+      rm_instruction("LD", 1, value->offset, reg, -1); 
     }
     else {
 		printf(" And so is arg, address 3 is %s\n", q->address3);
       constant = stoi(q->address3);
       printf("stoid'");
-	  rm_instruction("LDC", 1, constant, 0, 0); 
+	  rm_instruction("LDC", 1, constant, 0, -1); 
 		printf("got here");
 	}
 	
-	rm_instruction("LDC", 2, node->offset, 0, 0);
+	rm_instruction("LDC", 2, node->offset, 0, -1);
 	ro_instruction("ADD", 0, 0 , 2, 0);
 
 	reg = (level == 0) ? 4 : 5; // either global offset or FP 
-	rm_instruction("LDA", 2, 0, reg, 0);
+	rm_instruction("LDA", 2, 0, reg, -1);
 	ro_instruction("ADD", 2, 2, 0, 0);
-	rm_instruction("ST", 1, 0, 2, 0); 
+	rm_instruction("ST", 1, 0, 2, -1); 
 
 	return q->next; 
 }
@@ -308,22 +315,22 @@ static quad process_assignment(quad q, int *offset_from_fp){
     symnode value = lookup_in_symboltable(symtab, q->address2, 1, &val_lev);
     if (value != NULL){
       reg = (val_lev == 0) ? 4 : 5; 
-      rm_instruction("LD", 0, value->offset, reg, 0); 
+      rm_instruction("LD", 0, value->offset, reg, -1); 
     }
     else {
       // what type is it? 
       if (node->data_type == Int){
 	int constant = stoi(q->address2);
-	rm_instruction("LDC", 0, constant, 0, 0); 
+	rm_instruction("LDC", 0, constant, 0, -1); 
       }
       else {
 	double constant = stof(q->address2); 
-	rm_float_instruction("LDFC", 0, constant, 0, 0);
+	rm_float_instruction("LDFC", 0, constant, 0, -1);
       } 
     }
 
     int reg = (level == 0) ? 4 : 5; // either global offset or FP 
-    rm_instruction("ST", 0, node->offset, reg, 0); 
+    rm_instruction("ST", 0, node->offset, reg, -1); 
   }
   // Storing into a temp var 
   else {
@@ -340,20 +347,20 @@ static quad process_assignment(quad q, int *offset_from_fp){
     // get the value you're storing
     if (value_node != NULL){
       reg = (val_lev == 0) ? 4 : 5; // what register am I taking offset of? 
-      rm_instruction("LD", 0, value_node->offset, reg, 0); 
+      rm_instruction("LD", 0, value_node->offset, reg, -1); 
     }
     else { // it's a constant
       if (node->data_type == Int){ 
 	int constant = stoi(q->address2); 
-	rm_instruction("LDC", 0, constant, 0, 0);
+	rm_instruction("LDC", 0, constant, 0, -1);
       }
       else{
 	double constant = stof(q->address2); 
-	rm_float_instruction("LDFC", 0, constant, 0, 0); 
+	rm_float_instruction("LDFC", 0, constant, 0, -1); 
       }
     }
 
-    rm_instruction("ST", 0, node->offset, 5, 0); 
+    rm_instruction("ST", 0, node->offset, 5, -1); 
   }
   return q->next; 
 }
@@ -363,15 +370,13 @@ static quad process_assignment(quad q, int *offset_from_fp){
  * NEED A WAY TO REPORT RETURN TYPE AND PUT IN SYMBOL TABLE 
  */ 
 static quad process_funcdec(quad q){
-  int level, rtrn_type, rtrn_val_size, offset_from_fp, num_params; 
+  int level, rtrn_type, rtrn_val_size, offset_from_fp, num_params=0; 
 
   // write the jump to main command if this is the main function
-  if (strcmp(q->address2, "main") == 0 && instruction_pos != 1){
+  if (strcmp(q->address2, "main") == 0 ){
     printf("FOUND MAIN\n"); 
     rm_instruction("LDC", 7, instruction_pos, 0, jump_to_main); 
   }
-  else
-    instruction_pos--; 
   
   // figure out function return type
   if (strcmp(q->address1, "int") == 0){
@@ -388,18 +393,17 @@ static quad process_funcdec(quad q){
 
   symnode node = insert_into_symboltable(symtab, q->address2, Function, rtrn_type, 0); 
   node->offset = instruction_pos; 
-  
   // make space for return value
   // calculate the offset, based on what type the function returns
   increment_reg(6, rtrn_val_size); 
 
   // store the old R5 (FP); 
   // increment R6 
-  rm_instruction("ST", 5, 0, 6, 0); 
+  rm_instruction("ST", 5, 0, 6, -1); 
   increment_reg(6, 8); 
 
   // R5 = R6
-  rm_instruction("LDC", 0, 0, 0, 0); 
+  rm_instruction("LDC", 0, 0, 0, -1); 
   ro_instruction("ADD", 5, 6, 0, 0); 
   offset_from_fp = 0; 
 
@@ -407,6 +411,9 @@ static quad process_funcdec(quad q){
   while (q->opcode != exit_sub){
     q = process_quad(q, &offset_from_fp, rtrn_type, &num_params); 
   }
+  
+  node->num_params = num_params;
+
   return q->next; 
 }
 
@@ -430,7 +437,7 @@ static quad process_leave(quad q){
  * No code generated. 
  */ 
 static quad process_pardec(quad q, int rtrn_val_size, int *num_params){
-  int offset = -24; // this is maybe wrong? probably right though.  
+  int offset = -32; // this is maybe wrong? probably right though.  
   
   // go through all the pardecs
   for (q; q->opcode == pardec; q = q->next){
@@ -461,20 +468,20 @@ static quad process_return(quad q, int rtrn_val_type){
     int reg = (level == 0) ? 4 : 5; 
 
     if (rtrn_val_type == Double){
-      rm_instruction("LDF", 0, node->offset, reg, 0); 
-      rm_instruction("STF", 0, -16, 5, 0); 
+      rm_instruction("LDF", 0, node->offset, reg, -1); 
+      rm_instruction("STF", 0, -16, 5, -1); 
     }
     else {
-      rm_instruction("LD", 0, node->offset, reg, 0); 
-      rm_instruction("ST", 0, -16, 5, 0); 
+      rm_instruction("LD", 0, node->offset, reg, -1); 
+      rm_instruction("ST", 0, -16, 5, -1); 
     }
   }
 
   // now pop everything off the stack. After this, R6 will be pointing to old R5
-  rm_instruction("LDA", 6, -8, 5, 0);
+  rm_instruction("LDA", 6, -8, 5, -1);
 
   // LD 7, -24(5) to get old R7
-  rm_instruction("LD", 7, -24, 5, 0); 
+  rm_instruction("LD", 7, -24, 5, -1); 
 
   return q->next; 
 }
@@ -509,28 +516,28 @@ static quad process_math(quad q, int *offset_from_fp, char * operation){
   // Put the value of arg1 into R0
   if (arg1 != NULL){
     int arg1_offset_reg = (level1 == 0) ? 4 : 5; // global or local? 
-    rm_instruction("LD", 0, arg1->offset, arg1_offset_reg, 0); 
+    rm_instruction("LD", 0, arg1->offset, arg1_offset_reg, -1); 
   }
   else { // arg1 is a constant
     val = stoi(q->address2); 
-    rm_instruction("LDC", 0, val, 0, 0); 
+    rm_instruction("LDC", 0, val, 0, -1); 
   }
 
   // Put the value of arg2 into R1
   if (arg2 != NULL){
     int arg2_offset_reg = (level2 == 0) ? 4 : 5; // global or local?
-    rm_instruction("LD", 1, arg2->offset, arg2_offset_reg, 0); 
+    rm_instruction("LD", 1, arg2->offset, arg2_offset_reg, -1); 
   }
   else { // arg2 is a constant
     val = stoi(q->address3); 
-    rm_instruction("LDC", 1, val, 0, 0); 
+    rm_instruction("LDC", 1, val, 0, -1); 
   }
 
   // add those values into R0
   ro_instruction(operation, 0, 0, 1, 0); 
 
   // store that value into proper spot (at R6)
-  rm_instruction("ST", 0, 0, 6, 0); 
+  rm_instruction("ST", 0, 0, 6, -1); 
 
   // increment FP
   increment_reg(6, result_size); 
@@ -562,28 +569,28 @@ static quad process_float_math(quad q, int *offset_from_fp, char * operation){
   // Put the value of arg1 into R0                                                          
   if (arg1 != NULL){
     int arg1_offset_reg = (level1 == 0) ? 4 : 5; // global or local?                        
-    rm_instruction("LDF", 0, arg1->offset, arg1_offset_reg, 0);
+    rm_instruction("LDF", 0, arg1->offset, arg1_offset_reg, -1);
   }
   else { // arg1 is a constant                                                              
     val = stof(q->address2);
-    rm_float_instruction("LDFC", 0, val, 0, 0);
+    rm_float_instruction("LDFC", 0, val, 0, -1);
   }
 
   // Put the value of arg2 into R1                                                          
   if (arg2 != NULL){
     int arg2_offset_reg = (level2 == 0) ? 4 : 5; // global or local?                        
-    rm_instruction("LDF", 1, arg2->offset, arg2_offset_reg, 0);
+    rm_instruction("LDF", 1, arg2->offset, arg2_offset_reg, -1);
   }
   else { // arg2 is a literal    
     float_val = stof(q->address2);
-    rm_float_instruction("LDFC", 1, float_val, 0, 0);
+    rm_float_instruction("LDFC", 1, float_val, 0, -1);
   }
 
   // add those values into R0                      
   ro_instruction(operation, 0, 0, 1, 0);
 
   // store that value into proper spot (at R6)     
-  rm_instruction("STF", 0, 0, 6, 0);
+  rm_instruction("STF", 0, 0, 6, -1);
 
   // increment FP                                  
   increment_reg(6, result_size);
@@ -593,7 +600,7 @@ static quad process_float_math(quad q, int *offset_from_fp, char * operation){
 
 // ALWAYS PUT A SPACE FOR RETURN VALUE EVEN IF IT'S VOID
 static quad process_exitsub(quad q){
-
+/*	
   // 1. Make R6 point right above R5
   rm_instruction("LDA", 6, -8, 5, 0);  
 
@@ -609,6 +616,7 @@ static quad process_exitsub(quad q){
   rm_instruction("LD", 7, -4, 6, 0); 
 
   // WE DID IT HOORAY!
+  */
   return q->next; 
 }
 
@@ -630,9 +638,21 @@ static quad process_push(quad q){
   int size = 8; 
   
   if (node != NULL){
-    rm_instruction("LD", 0, node->offset, reg, 0); // load param into R0
-    rm_instruction("ST", 0, 0, 6, 0); 
+    rm_instruction("LD", 0, node->offset, reg, -1); // load param into R0
+    rm_instruction("ST", 0, 0, 6, -1); 
     increment_reg(6, size); // increment SP 
+  }
+  else {
+	char* test = strchr(q->address1, '.');
+	if (test == NULL){
+		rm_instruction("LDC", 0, stoi(q->address1),0,-1);
+		rm_instruction("ST", 0, 0, 6, -1);
+	}
+	else{
+		rm_instruction("LDFC", 0, stof(q->address1),0,-1);
+		rm_instruction("STF", 0, 0, 6, -1);
+	}
+	increment_reg(6,8);
   }
   return q->next; 
 }
@@ -645,38 +665,73 @@ static quad process_call(quad q){
   int level; 
   symnode func_node = lookup_in_symboltable(symtab, q->address1, Function, &level);  
   int offset = func_node->offset; 
-
+  current_parnum = func_node->num_params;
   // 2. where the program counter is now is where we eventually want to return to 
   // store value of R7 into R6 such that it goes the next command 
-  rm_instruction("LDC", 0, 4, 0, 0);  
+  rm_instruction("LDC", 0, 4, 0, -1);  
   ro_instruction("ADD", 0, 0, 7, 0); 
-  rm_instruction("ST", 0, 0, 6, 0); 
+  rm_instruction("ST", 0, 0, 6, -1); 
   increment_reg(6, 8); 
 
   // 3. put that into memory
   //LDC (7), ^that number(0); <-- found in step 1;
-  rm_instruction("LDC", 7, offset, 0, 0); 
+  rm_instruction("LDC", 7, offset, 0, -1); 
 
   return q->next; 
 }
 
 // Return is right above R6
-static quad process_get_rtrn(quad q, int num_params, int rtrn_type){
+static quad process_get_rtrn(quad q, int *offset_from_fp, int rtrn_type){
+	
   // restore R5
-  rm_instruction("LD", 5, 0, 6, 0); 
+  rm_instruction("LD", 5, 0, 6, -1); 
 
   // 1. put whatever R6 is looking at into R0
+  //  Where should we store this? in some existing variable or in a temp?
+
   // LD 0, 0(6)
   increment_reg(6, -8); 
-  if (rtrn_type == Double)
-    rm_instruction("LDF", 0, 0, 6, 0); 
-  else
-    rm_instruction("LD", 0, 0, 6, 0);
- 
-  // 2. put R6 back to where it should be: R6 = R5 + num_params * 8 
-  rm_instruction("LDC", 1, num_params * 8, 0, 0); 
-  ro_instruction("ADD", 6, 5, 1, 0); 
+  
 
+  if (rtrn_type == Double)
+    rm_instruction("LDF", 0, 0, 6, -1); 
+  else
+    rm_instruction("LD", 0, 0, 6, -1);
+	
+  
+
+		
+ 
+	printf(" PARAMS# %d", current_parnum);
+  // 2. put R6 back to where it should be: R6 = R5 + num_params * 8 
+  rm_instruction("LDC", 1, -8 -current_parnum * 8, 0, -1); 
+  ro_instruction("ADD", 6, 6, 1, 0); 
+
+  int level, reg; 
+  symnode target = lookup_in_symboltable(symtab, q->address1, Var, &level); 
+  
+  if (target != NULL){
+	if (rtrn_type == Double){
+		reg = (level == 0) ? 4 : 5; 
+		rm_instruction("STF", 0, target->offset, reg, -1); 
+	}
+	else{
+		reg = (level == 0) ? 4 : 5; 
+		rm_instruction("ST", 0, target->offset, reg, -1);
+	}
+}  
+	else{
+		symnode target = insert_into_symboltable(symtab, q->address1, Var, rtrn_type, 0);
+		target->offset = *offset_from_fp;
+		offset_from_fp+=8;
+		if (rtrn_type == Double){
+			rm_instruction("STF", 0, 0, 6, -1); 
+		}
+		else{
+			rm_instruction("ST", 0, 0, 6, -1);
+		}
+		increment_reg(6,8);
+	}
   return q->next; 
 }
 
@@ -695,8 +750,7 @@ static quad process_whileloop(quad q, int *offset_from_fp, int rtrn_type){
   // 1. process the condition while it's not ifFalse 
   while (q->opcode != ifFalse){
     int filler = 0; // won't be used, just need params
-    process_quad(q, offset_from_fp, rtrn_type, &filler); 
-    q = q->next; 
+    q =  process_quad(q, offset_from_fp, rtrn_type, &filler); 
   }
 
   // get the target offset
@@ -713,14 +767,15 @@ static quad process_whileloop(quad q, int *offset_from_fp, int rtrn_type){
   // 3. process the loop
   while (q->opcode != jumpTo){
     int filler; 
-    process_quad(q, offset_from_fp, rtrn_type, &filler); 
-    q = q->next; 
+    q = process_quad(q, offset_from_fp, rtrn_type, &filler); 
   }
 
   // 4. process the jump
-  rm_instruction("LDC", 0, 0, 0, 0); 
-  rm_instruction("LDC", 1, condition_loc, 0, 0); 
-  rm_instruction("JEQ", 0, 0, 1, 0); 
+  rm_instruction("LDC", 0, 0, 0, -1); 
+  rm_instruction("LDC", 1, condition_loc, 0, -1); 
+  rm_instruction("JEQ", 0, 0, 1, -1); 
+
+  q = q->next; 
 
   // 5. Go back and write ifFalse
   rm_instruction("LD", 0, target_offset, 5, ifFalse_pos);
@@ -759,15 +814,15 @@ static quad process_dowhileloop(quad q, int *offset_from_fp, int rtrn_type){
   int target_offset = target->offset;
 
   // 3. process ifFalse (just jump over the next instruction)
-  rm_instruction("LD", 0, target_offset, 5, 0); 
-  rm_instruction("LDC", 1, instruction_pos + 3, 0, 0);
-  rm_instruction("JEQ", 0, 0, 1, 0); 
+  rm_instruction("LD", 0, target_offset, 5, -1); 
+  rm_instruction("LDC", 1, instruction_pos + 3, 0, -1);
+  rm_instruction("JEQ", 0, 0, 1, -1); 
 
   q = q->next; // now it's the jumpTo
   // 4. process unconditional jump
-  rm_instruction("LDC", 0, 0, 0, 0); 
-  rm_instruction("LDC", 1, beginning, 0, 0); 
-  rm_instruction("JEQ", 0, 0, 1, 0); 
+  rm_instruction("LDC", 0, 0, 0, -1); 
+  rm_instruction("LDC", 1, beginning, 0, -1); 
+  rm_instruction("JEQ", 0, 0, 1, -1); 
 
   return q->next; 
 }
@@ -1001,16 +1056,16 @@ static quad process_not(quad q, int *offset_from_fp){
   *offset_from_fp +=8; 
 
   // store 1 into target
-  rm_instruction("LDC", 1, 1, 0, 0); 
-  rm_instruction("ST", 1, target->offset, 5, 0); 
+  rm_instruction("LDC", 1, 1, 0, -1); 
+  rm_instruction("ST", 1, target->offset, 5, -1); 
 
   // if R0 is 0, you're done! jump past the next 2 instructions
-  rm_instruction("LDC", 2, instruction_pos + 3, 0, 0); 
-  rm_instruction("JEQ", 0,  0, 2, 0); 
+  rm_instruction("LDC", 2, instruction_pos + 3, 0, -1); 
+  rm_instruction("JEQ", 0,  0, 2, -1); 
 
   // store 0 in target
-  rm_instruction("LDC", 1, 0, 0, 0); 
-  rm_instruction("ST", 1, target->offset, 5, 0); 
+  rm_instruction("LDC", 1, 0, 0, -1); 
+  rm_instruction("ST", 1, target->offset, 5, -1); 
 
   return q->next; 
 }
@@ -1035,60 +1090,65 @@ static quad process_logic(quad q, int *offset_from_fp){
     ro_instruction("SUB", 0, 0, 1, 0); 
   }
 
-  // target = 1
-  symnode target = insert_into_symboltable(symtab, q->address1, Var, Int, 0); 
-  target->offset = *offset_from_fp; 
-  *offset_from_fp += 8; 
+  // target = 1                                                                          
+  int level;
+  symnode target = lookup_in_symboltable(symtab, q->address1, Var, &level);
+
+  if (target == NULL){
+    target = insert_into_symboltable(symtab, q->address1, Var, Int, 0);
+    target->offset = *offset_from_fp;
+    *offset_from_fp += 8;
+  }
 
   // store true into proper spot (at R6) then increment R6
-  rm_instruction("LDC", 3, 1, 0, 0); 
-  rm_instruction("ST", 3, 0, 6, 0); 
+  rm_instruction("LDC", 3, 1, 0, -1); 
+  rm_instruction("ST", 3, 0, 6, -1); 
   increment_reg(6, 8); 
 
   // At this point, target = 1.  Now change it to 0 in the appropriate
   // circumstances, depending on what logical operator it is. 
   switch (q->opcode){
   case eq:
-    rm_instruction("JEQ", 0, 2, 7, 0); 
+    rm_instruction("JEQ", 0, 2, 7, -1); 
     break; 
   case neq:
-    rm_instruction("JNE", 0, 2, 7, 0); 
+    rm_instruction("JNE", 0, 2, 7, -11); 
     break; 
   case lt:
-    rm_instruction("JLT", 0, 2, 7, 0); 
+    rm_instruction("JLT", 0, 2, 7, -1); 
     break; 
   case leq:
-    rm_instruction("JLE", 0, 2, 7, 0); 
+    rm_instruction("JLE", 0, 2, 7, -1); 
     break; 
   case gt:
-    rm_instruction("JGT", 0, 2, 7, 0); 
+    rm_instruction("JGT", 0, 2, 7, -1); 
     break; 
   case geq:
-    rm_instruction("JGE", 0, 2, 7, 0); 
+    rm_instruction("JGE", 0, 2, 7, -1); 
     break; 
   case f_eq:
-    rm_instruction("JFEQ", 0, 2, 7, 0); 
+    rm_instruction("JFEQ", 0, 2, 7, -1); 
     break; 
   case f_neq:
-    rm_instruction("JFNE", 0, 2, 7, 0); 
+    rm_instruction("JFNE", 0, 2, 7, -1); 
     break; 
   case f_lt:
-    rm_instruction("JFLT", 0, 2, 7, 0); 
+    rm_instruction("JFLT", 0, 2, 7, -1); 
     break; 
   case f_leq:
-    rm_instruction("JFLE", 0, 2, 7, 0); 
+    rm_instruction("JFLE", 0, 2, 7, -1); 
     break; 
   case f_gt:
-    rm_instruction("JFGT", 0, 2, 7, 0); 
+    rm_instruction("JFGT", 0, 2, 7, -1); 
     break;
   case f_geq:
-    rm_instruction("JFGE", 0, 2, 7, 0); 
+    rm_instruction("JFGE", 0, 2, 7, -1); 
     break; 
   }  
 
   // Then assign target = 0 (the previous lines will jump over this if it was true. 
-  rm_instruction("LDC", 0, 0, 0, 0); 
-  rm_instruction("ST", 0, target->offset, 5, 0); 
+  rm_instruction("LDC", 0, 0, 0, -1); 
+  rm_instruction("ST", 0, target->offset, 5, -1); 
 
   return q->next; 
 }
@@ -1102,7 +1162,7 @@ static quad process_quad(quad q, int * offset_from_fp, int rtrn_type, int *num_p
   switch(q->opcode){
   case read:
     printf("read\n"); 
-    q = process_read(q); 
+    q = process_read(q, offset_from_fp); 
     break; 
   case print:
     printf("print\n"); 
@@ -1178,7 +1238,7 @@ static quad process_quad(quad q, int * offset_from_fp, int rtrn_type, int *num_p
     break; 
   case get_rtrn: 
     printf("get_rtrn\n"); 
-    q = process_get_rtrn(q, *num_params, rtrn_type); 
+    q = process_get_rtrn(q, offset_from_fp, rtrn_type); 
     break; 
   case whileloop: 
     printf("whileloop\n"); 
@@ -1243,12 +1303,12 @@ static void load_arg(char * name, int reg){
   // If variable: 
   if (arg != NULL){
     int arg_offset_reg = (level == 0) ? 4 : 5; 
-    rm_instruction("LD", reg, arg->offset, arg_offset_reg, 0); 
+    rm_instruction("LD", reg, arg->offset, arg_offset_reg, -1); 
   }
   // If it's a constant: 
   else{
     int val = stoi(name); 
-    rm_instruction("LDC", reg, val, 0, 0); 
+    rm_instruction("LDC", reg, val, 0, -1); 
   }
 }
 
@@ -1261,11 +1321,11 @@ static void load_float_arg(char * name, int reg){
   // If variable: 
   if (arg != NULL){
     int arg_offset_reg = (level == 0) ? 4 : 5; 
-    rm_instruction("LDF", reg, arg->offset, arg_offset_reg, 0); 
+    rm_instruction("LDF", reg, arg->offset, arg_offset_reg, -1); 
   }
   else {
     float val = stof(name); 
-    rm_float_instruction("LDFC", reg, val, 0, 0); 
+    rm_float_instruction("LDFC", reg, val, 0, -1); 
   }
 }
 
@@ -1281,21 +1341,21 @@ static void ro_instruction(char *opcode, int r, int s, int t, int instruction_ov
 
 static void rm_instruction(char *opcode, int r, int d, int s, int instruction_override){
   char buffer[MAX_BUFFER]; 
-  int instruct_num = (instruction_override == 0) ? instruction_pos : instruction_override; 
+  int instruct_num = (instruction_override == -1) ? instruction_pos : instruction_override; 
   snprintf(buffer, MAX_BUFFER, "%d: %s %d, %d(%d)\n", instruct_num, opcode, r, d, s); 
   write(buffer); 
 
-  if (instruction_override == 0)
+  if (instruction_override == -1)
     instruction_pos++; 
 }
 
 static void rm_float_instruction(char *opcode, int r, double d, int s, int instruction_override){
   char buffer[MAX_BUFFER]; 
-  int instruct_num = (instruction_override == 0) ? instruction_pos : instruction_override; 
+  int instruct_num = (instruction_override == -1) ? instruction_pos : instruction_override; 
   snprintf(buffer, MAX_BUFFER, "%d, %s %d, %f(%d)\n", instruct_num, opcode, r, d, s); 
   write(buffer); 
 
-  if (instruction_override == 0)
+  if (instruction_override == -1)
     instruction_pos++; 
 }
 
@@ -1318,7 +1378,7 @@ static char * process_temp(char * init_temp){
 }
 
 static void increment_reg(int reg, int offset){
-  rm_instruction("LDC", 0, offset, 0, 0); 
+  rm_instruction("LDC", 0, offset, 0, -1); 
   ro_instruction("ADD", reg, reg, 0, 0); 
 }
 
@@ -1345,9 +1405,9 @@ static quad process_print(quad q, int *offset_from_fp){
     printf("My len is %d", len);
     while (i > 0){
       int ascii = q->address1[len-i];
-      rm_instruction("LDC", 0, ascii, 0, 0);
-      rm_instruction("STB", 0, *offset_from_fp, 5, 0);
-      rm_instruction("LDB", 0, *offset_from_fp, 5, 0);
+      rm_instruction("LDC", 0, ascii, 0, -1);
+      rm_instruction("STB", 0, *offset_from_fp, 5, -1);
+      rm_instruction("LDB", 0, *offset_from_fp, 5, -1);
       ro_instruction("OUTB", 0, 0, 0,0);
       i--;
     }
@@ -1365,19 +1425,51 @@ static quad process_print(quad q, int *offset_from_fp){
   return q->next;
 }
 
-static quad process_read(quad q){
+/*static quad process_read(quad q){
   int level, reg; 
   
-  symnode target = lookup_in_symboltable(symtab, q->address1, Var, &level); 
+  symnode target = lookup_in_symboltable(symtab, q->address1, Var, &level);
+  	
   if (target->data_type == Int){
     ro_instruction("IN", 0, 0, 0, 0);
     reg = (level == 0) ? 4 : 5; 
-    rm_instruction("ST", 0, target->offset, reg, 0); 
+    rm_instruction("ST", 0, target->offset, reg, -1); 
   }
   else{
     ro_instruction("INF", 0, 0, 0, 0);
     reg = (level == 0) ? 4 : 5; 
-    rm_instruction("STF", 0, target->offset, reg, 0); 
+    rm_instruction("STF", 0, target->offset, reg, -1); 
+  }
+  return q->next;
+  }*/
+
+static quad process_read(quad q, int * offset_from_fp){
+  int level, reg, level2, type;
+
+  symnode target = lookup_in_symboltable(symtab, q->address1, Var, &level);
+  if (target == NULL){
+    // what type should this be? look at the next quad (array) and check the type        
+    symnode array = lookup_in_symboltable(symtab, q->next->address1, Array, &level2);
+    if (array != NULL)
+      type = array->data_type;
+
+    target = insert_into_symboltable(symtab, q->address1, Var, type, 0);
+    target->offset = *offset_from_fp;
+    *offset_from_fp += 8;
+    level = 1;
+
+    increment_reg(6, 8);
+  }
+
+  if (target->data_type == Int){
+    ro_instruction("IN", 0, 0, 0, 0);
+    reg = (level == 0) ? 4 : 5;
+    rm_instruction("ST", 0, target->offset, reg, 0);
+  }
+  else{
+    ro_instruction("INF", 0, 0, 0, 0);
+    reg = (level == 0) ? 4 : 5;
+    rm_instruction("STF", 0, target->offset, reg, 0);
   }
   return q->next;
 }
