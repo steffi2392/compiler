@@ -655,7 +655,7 @@ static quad process_float_math(quad q, int *offset_from_fp, char * operation){
     float_val = stof(q->address2);
     printf("NOT FLOATING YET %s\n", q->address2);
     printf("IM FLOATING %f\n", float_val);
-    rm_float_instruction("LDFC", 0, val, 0, -1);
+    rm_float_instruction("LDFC", 0, float_val, 0, -1);
   }
 
   // Put the value of arg2 into R1                                                          
@@ -1482,7 +1482,7 @@ static int stoi(char * string){
 
 static float stof(char * string){
   float i; 
-  scanf(string, "%f", &i); 
+  sscanf(string, "%f", &i); 
   printf("string is %s, float is %f \n", string, i);
   return i; 
   //return atof(string);
