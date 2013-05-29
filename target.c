@@ -223,6 +223,7 @@ static quad process_lkup(quad q, int *offset_from_fp){
 	int level, ind_lev, reg;
 	
 	symnode array = lookup_in_symboltable(symtab, q->address2, Array, &level);
+	int type = array->data_type;
 	symnode result_node = insert_into_symboltable(symtab, q->address1, Var, array->data_type, 0); 
 	result_node->offset = *offset_from_fp;
 	*offset_from_fp += 8; 
@@ -250,19 +251,28 @@ static quad process_lkup(quad q, int *offset_from_fp){
 	  reg = (level == 0) ? 4 : 5; // either global offset or FP 
 	  rm_instruction("LDA", 2, array->offset, reg, -1);
 	  ro_instruction("ADD", 2, 2, 0, 0);
-	  rm_instruction("LD", 2, 0, 2, -1);
+	  
+	  if (type == Int)
+	    rm_instruction("LD", 2, 0, 2, -1);
+	  else 
+	    rm_instruction("LDF", 2, 0, 2 , -1);
 	}
 	else {
 	  reg = (level == 0) ? 4 : 5; // either global offset or FP
 	  rm_instruction("LD", 1, array->offset, reg, -1);
 	  ro_instruction("ADD", 0,0,1,0);
-	    
-	  rm_instruction("LD", 2, 0, 0, -1);
+	  
+	  if (type == Int)
+	    rm_instruction("LD", 2, 0, 0, -1);
+	  else
+	    rm_instruction("LDF", 2, 0,0,-1);
 	}
 	
-	// store that value into proper spot (at R6)
-	rm_instruction("ST", 2, 0, 6, -1); 
-
+	if (type == Int)
+	  // store that value into proper spot (at R6)
+	  rm_instruction("ST", 2, 0, 6, -1); 
+	else
+	  rm_instruction("STF", 2, 0, 6, -1);
 	// increment FP
 	increment_reg(6, 8); 
 
@@ -274,6 +284,7 @@ static quad process_array_assignment(quad q){
 	
 	int level, ind_lev, val_lev, reg, constant;
 	symnode node = lookup_in_symboltable(symtab, q->address1, Array, &level);
+	int type = node->data_type;
 	symnode index = lookup_in_symboltable(symtab, q->address2, Var, &ind_lev);
 	
     if (index != NULL){
@@ -293,17 +304,28 @@ static quad process_array_assignment(quad q){
 	symnode value = lookup_in_symboltable(symtab, q->address3, Var, &val_lev);
 	
     if (value != NULL){
-      reg = (val_lev == 0) ? 4 : 5; 
-      rm_instruction("LD", 1, value->offset, reg, -1); 
+      reg = (val_lev == 0) ? 4 : 5;
+      if (type == Int)
+	rm_instruction("LD", 1, value->offset, reg, -1); 
+      else
+	rm_instruction("LDF", 1, value->offset, reg, -1);
     }
     else {
-		printf(" And so is arg, address 3 is %s\n", q->address3);
-      constant = stoi(q->address3);
-      printf("stoid'");
-	  rm_instruction("LDC", 1, constant, 0, -1); 
-		printf("got here");
+      //printf(" And so is arg, address 3 is %s\n", q->address3);
+      
+      if (type == Int){
+	constant = stoi(q->address3);
+	printf("stoid'");
+	  
+	rm_instruction("LDC", 1, constant, 0, -1); 
+	//printf("got here");
 	}
-	
+      else {
+	float c2 = stof(q->address3);
+	rm_instruction("LDFC", 1, c2, 0 , -1);
+      }
+    }
+    
     if (node->dereference == 0) {
       rm_instruction("LDC", 2, node->offset, 0, -1);
       ro_instruction("ADD", 0, 0 , 2, 0);
@@ -319,8 +341,10 @@ static quad process_array_assignment(quad q){
       
       
     }
-    rm_instruction("ST", 1, 0, 2, -1); 
-
+    if (type == 1)
+      rm_instruction("ST", 1, 0, 2, -1); 
+    else 
+      rm_instruction("STF", 1, 0 ,2 ,-1);
 	return q->next; 
 }
 
@@ -530,6 +554,7 @@ static quad process_return(quad q, int rtrn_val_type){
     symnode node = lookup_in_symboltable(symtab, q->address1, Var, &level); 
 
     if (node != NULL){
+      printf("Returning node is %s w/ offset %d \n", q->address1, node->offset);
       int reg = (level == 0) ? 4 : 5; 
 
       if (rtrn_val_type == Double){
@@ -590,7 +615,8 @@ static quad process_math(quad q, int *offset_from_fp, char * operation){
     result_node->offset = *offset_from_fp;
     *offset_from_fp += 8;
     level = 1; 
-  }
+    increment_reg(6,8);
+}
 
   // Put the value of arg1 into R0
   if (arg1 != NULL){
@@ -616,12 +642,12 @@ static quad process_math(quad q, int *offset_from_fp, char * operation){
   ro_instruction(operation, 0, 0, 1, 0); 
 
   // store that value into proper spot (at R6)
-  rm_instruction("ST", 0, 0, 6, -1); 
-  //int reg = (level == 0) ? 4 : 5;
-  //rm_instruction("ST", 0, result_node->offset, reg, -1); 
+  //rm_instruction("ST", 0, 0, 6, -1); 
+  int reg = (level == 0) ? 4 : 5;
+  rm_instruction("ST", 0, result_node->offset, reg, -1); 
 
   // increment FP
-  increment_reg(6, result_size); 
+  //increment_reg(6, result_size); 
 
   return q->next; 
 }
@@ -645,6 +671,7 @@ static quad process_float_math(quad q, int *offset_from_fp, char * operation){
     result_node = insert_into_symboltable(symtab, q->address1, Var, Double, 0);
     result_node->offset = *offset_from_fp;
     *offset_from_fp += 8;
+    increment_reg(6,8);
   }
 
   // Put the value of arg1 into R0                                                          
@@ -684,10 +711,12 @@ static quad process_float_math(quad q, int *offset_from_fp, char * operation){
   ro_instruction(operation, 0, 0, 1, 0);
 
   // store that value into proper spot (at R6)     
-  rm_instruction("STF", 0, 0, 6, -1);
-
+  //rm_instruction("STF", 0, 0, 6, -1);
+  int reg = (level == 0) ? 4 : 5;
+  rm_instruction("ST", 0, result_node->offset, reg, -1);
+ 
   // increment FP                                  
-  increment_reg(6, result_size);
+  //increment_reg(6, result_size);
 
   return q->next; 
 }
@@ -1491,7 +1520,7 @@ static int stoi(char * string){
 static float stof(char * string){
   float i; 
   sscanf(string, "%f", &i); 
-  printf("string is %s, float is %f \n", string, i);
+  //  printf("string is %s, float is %f \n", string, i);
   return i; 
   //return atof(string);
 }
@@ -1499,7 +1528,7 @@ static float stof(char * string){
 static quad process_print(quad q, int *offset_from_fp){
   int level;
   symnode output = lookup_in_symboltable(symtab, q->address1, Var, &level);
-  printf("My name is %s, and %d", q->address1, output->data_type);
+  //printf("My name is %s, and %d", q->address1, output->data_type);
   if (output == NULL){
     //char stringBuff[MAX_BUFFER];                                                         
     //strcat(stringBuff, q->address1);                                                     
