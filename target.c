@@ -487,17 +487,32 @@ static quad process_return(quad q, int rtrn_val_type){
     // LD O, t1's offset of R5
     int level; 
     symnode node = lookup_in_symboltable(symtab, q->address1, Var, &level); 
-    int reg = (level == 0) ? 4 : 5; 
 
-    if (rtrn_val_type == Double){
-      rm_instruction("LDF", 0, node->offset, reg, -1); 
-      rm_instruction("STF", 0, -16, 5, -1); 
+    if (node != NULL){
+      int reg = (level == 0) ? 4 : 5; 
+
+      if (rtrn_val_type == Double){
+	rm_instruction("LDF", 0, node->offset, reg, -1); 
+	rm_instruction("STF", 0, -16, 5, -1); 
+      }
+      else {
+	rm_instruction("LD", 0, node->offset, reg, -1); 
+	rm_instruction("ST", 0, -16, 5, -1); 
+      }
     }
     else {
-      rm_instruction("LD", 0, node->offset, reg, -1); 
-      rm_instruction("ST", 0, -16, 5, -1); 
+      char* test = strchr(q->address1, '.');
+      if (test == NULL){ // int - no decimal point
+        rm_instruction("LDC", 0, stoi(q->address1),0,-1);
+	rm_instruction("ST", 0, -16, 5, -1);
+      }
+      else{
+	rm_instruction("LDFC", 0, stof(q->address1),0,-1);
+        rm_instruction("STF", 0, -16, 5, -1);
+      }
     }
-  }
+ 
+ }
 
   // now pop everything off the stack. After this, R6 will be pointing to old R5
   rm_instruction("LDA", 6, -8, 5, -1);
