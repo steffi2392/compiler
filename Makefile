@@ -2,8 +2,8 @@ CC = gcc
 CFLAGS = -g
 BISONFL = -d -v
 
-tree: lex.yy.o tree.tab.o table.o  symtab.o ast.o intermediate.o tree_main.o traverse.o
-	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o table.o symtab.o ast.o intermediate.o tree_main.o traverse.o
+tree: lex.yy.o tree.tab.o table.o  symtab.o ast.o intermediate.o tree_main.o traverse.o target.o
+	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o table.o symtab.o ast.o intermediate.o tree_main.o traverse.o target.o
 
 generate: lex.yy.o tree.tab.o table.o  symtab.o ast.o intermediate.o generate.o
 	$(CC) -o $@ $(CFLAGS) lex.yy.o tree.tab.o table.c  symtab.o ast.o intermediate.o generate.o

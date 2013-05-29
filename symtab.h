@@ -18,7 +18,9 @@ struct symnode {
   id_type node_type;        /* 2 if Array, 1 if it's a var, 0 if function */
   types data_type;       /* data type */
   ast_node parameters;
-  int num_params;
+  char parnames[15][30];
+  int dereference;
+  int size;
   int line_number;
   int offset; 
   };

@@ -33,8 +33,9 @@ int main(){
     print_ast(root, 0);
     traverse(root, symtab);
     generate_traverse(root); 
-    print_code(root->code); 
-  }
+        print_code(root->code); 
+	generate_target(root->code);
+}
 
   return 0; 
 }
