@@ -383,7 +383,7 @@ types typecheck(ast_node parent, symboltable symtab){
 
 void traverse(ast_node parent, symboltable symtab){
 
-	//printf("begin traversal at node %s\n",  token_table[parent->node_type].token);
+	printf("begin traversal at node %s\n",  token_table[parent->node_type].token);
 	
 	if (parent->node_type== ROOT || parent->node_type == CMPD || parent->node_type == PARAMS){
 		ast_node n = parent->left_child;
@@ -497,4 +497,5 @@ void traverse(ast_node parent, symboltable symtab){
 		scopecheck(parent, symtab);
 		typecheck(parent, symtab);	
 		}	
+	return;
 }

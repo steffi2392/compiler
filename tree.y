@@ -147,7 +147,7 @@ formalParams : formalList {
 	ast_node a = create_ast_node(PARAMS, lineNumber);
 	a->left_child= $1;
 	$$ = a;}
-| VOID {$$ = NULL;}
+| VOID {$$ = create_ast_node(PARAMS, lineNumber);}
 | {$$ = create_ast_node(PARAMS, lineNumber);}
 ;
 
