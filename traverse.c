@@ -260,10 +260,14 @@ types typecheck(ast_node parent, symboltable symtab){
 		parent->node_type == OP_TIMES || parent->node_type == OP_DIVIDE){
 		types type1 = typecheck(parent->left_child, symtab);
 		types type2 = typecheck(parent->left_child->right_sibling, symtab);
-		if (type1 == Double || type2 == Double)
+		if (type1 == Double || type2 == Double){
+		  parent->type = Double;
 			return Double;
-		else
+		}
+		else {
+		  parent->type = Int;
 			return Int;
+		}
 	}
 	if (parent->node_type == OP_ASSIGN){
 		types type1 = typecheck(parent->left_child, symtab);
@@ -286,6 +290,8 @@ types typecheck(ast_node parent, symboltable symtab){
 			fprintf(stderr, "Type error on line %d, Modulus takes integer inputs\n", parent->line_number);
 			exit(1);
 		}
+		parent->type = Int;
+		return Int;
 	}
 	
 	
