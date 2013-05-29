@@ -1508,12 +1508,12 @@ static quad process_read(quad q, int * offset_from_fp){
   if (target->data_type == Int){
     ro_instruction("IN", 0, 0, 0, 0);
     reg = (level == 0) ? 4 : 5;
-    rm_instruction("ST", 0, target->offset, reg, 0);
+    rm_instruction("ST", 0, target->offset, reg, -1);
   }
   else{
     ro_instruction("INF", 0, 0, 0, 0);
     reg = (level == 0) ? 4 : 5;
-    rm_instruction("STF", 0, target->offset, reg, 0);
+    rm_instruction("STF", 0, target->offset, reg, -1);
   }
   return q->next;
 }
