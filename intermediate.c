@@ -968,11 +968,15 @@ static void process_read(ast_node node){
 // (rtrn, location, NULL, NULL); 
 static void process_return(ast_node node){
   quad return_quad = create_quad(rtrn); 
-  char * left = process_left(node); 
-  return_quad->address1 = left; 
-  node->location = left; 
+  
+  if (node->left_child != NULL){
+    char * left = process_left(node); 
+    return_quad->address1 = left; 
+    node->location = left; 
 
-  add_quad_list(node, node->left_child->code); 
+    add_quad_list(node, node->left_child->code);
+  }
+ 
   add_quad(node, return_quad); 
 }
 
