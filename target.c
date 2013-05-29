@@ -63,7 +63,7 @@ int instruction_pos = 0;
 int main_loc; 
 int jump_to_main;
 int current_parnum; 
-int rtrn_type = 0;
+int rtrn_type = 2;
 symboltable symtab; 
 
 FILE *file; 
@@ -227,7 +227,7 @@ static quad process_lkup(quad q, int *offset_from_fp){
 	symnode result_node = insert_into_symboltable(symtab, q->address1, Var, array->data_type, 0); 
 	result_node->offset = *offset_from_fp;
 	*offset_from_fp += 8; 
-	symnode index = lookup_in_symboltable(symtab, q->address2, Var, &ind_lev);
+	symnode index = lookup_in_symboltable(symtab, q->address3, Var, &ind_lev);
 
     if (index != NULL){
       reg = (ind_lev == 0) ? 4 : 5; 
@@ -243,10 +243,10 @@ static quad process_lkup(quad q, int *offset_from_fp){
 	
 	if (array->dereference == 0){
 	  //Store the offset of the start of the array
-	  rm_instruction("LDC", 1, array->offset, 0, -1);
+	 // rm_instruction("LDC", 1, array->offset, 0, -1);
 	  
 	  // Add up the offset of the start with the offset of the index
-	  ro_instruction("ADD", 0, 0 , 1, 0);
+	  //ro_instruction("ADD", 0, 0 , 1, 0);
 	  
 	  reg = (level == 0) ? 4 : 5; // either global offset or FP 
 	  rm_instruction("LDA", 2, array->offset, reg, -1);
@@ -257,6 +257,7 @@ static quad process_lkup(quad q, int *offset_from_fp){
 	  else 
 	    rm_instruction("LDF", 2, 0, 2 , -1);
 	}
+	
 	else {
 	  reg = (level == 0) ? 4 : 5; // either global offset or FP
 	  rm_instruction("LD", 1, array->offset, reg, -1);
@@ -307,9 +308,13 @@ static quad process_array_assignment(quad q){
       reg = (val_lev == 0) ? 4 : 5;
       if (type == Int)
 	rm_instruction("LD", 1, value->offset, reg, -1); 
-      else
+      else if (type == Double)
 	rm_instruction("LDF", 1, value->offset, reg, -1);
-    }
+		else{
+			printf("PANIC\n");
+			exit(2);
+		}
+	}
     else {
       //printf(" And so is arg, address 3 is %s\n", q->address3);
       
@@ -337,11 +342,11 @@ static quad process_array_assignment(quad q){
     else {
       reg = (level == 0) ? 4 : 5; // either global offset or FP
       rm_instruction("LD", 2, node->offset, reg, -1);
-      ro_instruction("ADD", 0, 0, 2, 0);
+      ro_instruction("ADD", 2, 0, 2, 0);
       
       
     }
-    if (type == 1)
+    if (type == Int)
       rm_instruction("ST", 1, 0, 2, -1); 
     else 
       rm_instruction("STF", 1, 0 ,2 ,-1);
@@ -457,21 +462,22 @@ static quad process_funcdec(quad q){
     rm_instruction("LDC", 7, instruction_pos, 0, jump_to_main); 
     in_main = 1;
   }
-  
+	
+int rt;
   // figure out function return type
-  /*if (strcmp(q->address1, "int") == 0){
-    rtrn_type = 0; 
+  if (strcmp(q->address1, "int") == 0){
+    rt = 0; 
   }
   else if (strcmp(q->address1, "double") == 0){
-    rtrn_type = 1; 
+    rt = 1; 
   }
   else {
-    rtrn_type = 2; 
+    rt = 2; 
   }
-  */
+  
   rtrn_val_size = 8; 
 
-  symnode node = insert_into_symboltable(symtab, q->address2, Function, rtrn_type, 0); 
+  symnode node = insert_into_symboltable(symtab, q->address2, Function, rt, 0); 
   node->offset = instruction_pos; 
   // make space for return value
   // calculate the offset, based on what type the function returns
@@ -855,7 +861,8 @@ static quad process_get_rtrn(quad q, int *offset_from_fp, int rtrn_type){
 		else{
 			rm_instruction("ST", 0, 0, 6, -1);
 		}
-		increment_reg(6,8);
+		if (rtrn_type != Void)
+			increment_reg(6,8);
 	}
   return q->next; 
 }
