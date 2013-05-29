@@ -18,6 +18,7 @@
 #define MAX_BUFFER 200 
 
 /* prototypes */
+static quad process_read(quad q); 
 static quad process_print(quad q, int *offset_from_fp); 
 static quad process_global(quad q);
 static quad process_vardec(quad q, int *offset_from_fp);  
@@ -540,7 +541,7 @@ static quad process_math(quad q, int *offset_from_fp, char * operation){
 // This one handles floats!
 // There might be alignment issues!!
 static quad process_float_math(quad q, int *offset_from_fp, char * operation){
-  int level1, level2, result_size, val; 
+  int level1, level2, result_size, val, level; 
   double float_val; 
   symnode arg1 = lookup_in_symboltable(symtab, q->address2, Var, &level1); 
   symnode arg2 = lookup_in_symboltable(symtab, q->address3, Var, &level2); 
@@ -1099,6 +1100,10 @@ static void write(char * string){
 
 static quad process_quad(quad q, int * offset_from_fp, int rtrn_type, int *num_params){
   switch(q->opcode){
+  case read:
+    printf("read\n"); 
+    q = process_read(q); 
+    break; 
   case print:
     printf("print\n"); 
     q = process_print(q, offset_from_fp); 
@@ -1356,6 +1361,23 @@ static quad process_print(quad q, int *offset_from_fp){
       load_float_arg(q->address1, 0);
       ro_instruction("OUTF", 0,0,0,0);
     }
+  }
+  return q->next;
+}
+
+static quad process_read(quad q){
+  int level, reg; 
+  
+  symnode target = lookup_in_symboltable(symtab, q->address1, Var, &level); 
+  if (target->data_type == Int){
+    ro_instruction("IN", 0, 0, 0, 0);
+    reg = (level == 0) ? 4 : 5; 
+    rm_instruction("ST", 0, target->offset, reg, 0); 
+  }
+  else{
+    ro_instruction("INF", 0, 0, 0, 0);
+    reg = (level == 0) ? 4 : 5; 
+    rm_instruction("STF", 0, target->offset, reg, 0); 
   }
   return q->next;
 }
