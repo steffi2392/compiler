@@ -218,7 +218,7 @@ types typecheck(ast_node parent, symboltable symtab){
 		}
 		else {	
 			if (current_f_type != typecheck(parent->left_child, symtab)){
-				fprintf(stderr, "Error on line %d, return type mismatch at line %d\n", parent->line_number);
+				fprintf(stderr, "Error on line %d, return type mismatch", parent->line_number);
 				exit(1);
 			}
 		}
@@ -254,7 +254,7 @@ types typecheck(ast_node parent, symboltable symtab){
 		}
 	
 	if (parent->node_type == OP_NEG || parent->node_type == OP_INC || 
-		parent->node_type == OP_DEC) return parent->left_child->type;
+		parent->node_type == OP_DEC) return typecheck(parent->left_child, symtab);
 		
 	if (parent->node_type == OP_PLUS  || parent->node_type == OP_MINUS ||
 		parent->node_type == OP_TIMES || parent->node_type == OP_DIVIDE){
@@ -273,7 +273,7 @@ types typecheck(ast_node parent, symboltable symtab){
 			idtype(type1, t1);
 			char t2[15]; 
 			idtype(type2, t2);
-			fprintf(stderr, "Type Error on line %d, assigning %d to %d variable\n", parent->line_number, t2, t1);
+			fprintf(stderr, "Type Error on line %d, assigning %s to %s variable\n", parent->line_number, t2, t1);
 			exit(1);
 			}
 		else return type1;
