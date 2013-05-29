@@ -944,9 +944,12 @@ static void process_for(ast_node node){
 // (read, location, NULL, NULL)
 static void process_read(ast_node node){
   quad read_quad = create_quad(read); 
-  char * left = process_left(node); 
+  char * left = process_left(node);
+  printf("left: %s\n", left); 
   read_quad->address1 = left; 
 
+  if (node->left_child != NULL)
+    add_quad_list(node, node->left_child->code); 
   add_quad(node, read_quad); 
 }
 
@@ -1140,7 +1143,7 @@ static void process_id(ast_node node){
   node->location = node->value.string; 
 }
 
-// Format: (array_lkup, name, index, NULL)
+// Format: (array_lkup, target, name, index)
 static void process_array(ast_node node){
   quad array_quad = create_quad(array_lkup);
 
