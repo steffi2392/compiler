@@ -1019,6 +1019,14 @@ static void process_function(ast_node node){
   quad leave_quad = create_quad(leave); 
   add_quad(node, leave_quad); 
  
+  // JUST ADDED
+  // if it's main, add halt   
+  if (strcmp(name, "main") == 0){
+    quad halt_quad = create_quad(halt);
+    add_quad(node, halt_quad);
+  }
+
+
   // default return
   quad return_quad = create_quad(rtrn); 
   add_quad(node, return_quad); 
@@ -1066,6 +1074,7 @@ static void process_vardec(ast_node node){
       vardec_quad->address1 = "int"; 
     else if (node->node_type == DOUBLE_TYPE)
       vardec_quad->address1 = "double"; 
+    
 
     if (node->left_child->node_type == OP_ASSIGN){
       vardec_quad->address2 = node->left_child->left_child->value.string; 
@@ -1113,10 +1122,11 @@ static void process_call(ast_node node){
   // 1. push the params onto the stack in reverse order
   ast_node args = node->left_child->right_sibling; 
 
-  // do this first now, for Mehdi
+
   quad goto_sub_quad = create_quad(goto_sub);
   goto_sub_quad->address1 = node->left_child->value.string;
   add_quad(node, goto_sub_quad);
+   
 
   ast_node curr; 
   for (curr = args->left_child; curr != NULL; curr = curr->right_sibling){
@@ -1141,6 +1151,7 @@ static void process_call(ast_node node){
  
     add_quad_to_beginning(node, push_quad); 
     add_quad_list_to_beginning(node, curr->code); 
+    //add_quad_list(node, curr->code); 
   }
 
   // 2. jump to the function's subroutine
