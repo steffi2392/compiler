@@ -416,14 +416,20 @@ void traverse(ast_node parent, symboltable symtab){
 	// upon seeing an INT or a DOUBLE, check the left child
 	else if (parent-> node_type == INT_TYPE || parent->node_type == DOUBLE_TYPE){
 		ast_node n = parent->left_child;
-		int type;
+		int type, lvl;
 		char t[15];	
+		symnode test;
 		while (n!=NULL) {
 			//printf("recurse on  %s\n",  token_table[n->node_type].token);
 			ast_node c=n->left_child;
 			switch(n->node_type){
 					// If an ID is found, the ast node has all the information needed to populate the symtable
 				case IDENT:
+				        test = lookup_in_symboltable(symtab, n->value.string, Array, &lvl);
+				        if (test != NULL){
+					  fprintf(stderr, "Error: ID already declared at line %d", test->line_number);
+					  exit(1);
+					}
 					insert_into_symboltable(symtab, n->value.string, Var, n->type, n->line_number);
 					datatype(n->type, t);
 					//printf("var name: %s, type: %s\n", n->value.string, t );
@@ -442,6 +448,12 @@ void traverse(ast_node parent, symboltable symtab){
 					// Add the left child of the assignment operation, check the right sibling to make sure it's an int.
 
 				case ARRAY:
+				  test = lookup_in_symboltable(symtab, n->left_child->value.string, Var, &lvl);
+				  if (test != NULL){
+				    fprintf(stderr, "Error: ID already declared at line %d", test->line_number);
+				    exit(1);
+				  }
+
 					insert_into_symboltable(symtab, c->value.string,Array, c->type,  c->line_number);
 					typecheck(n, symtab);
 					if (n->left_child->right_sibling != NULL){
