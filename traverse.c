@@ -3,6 +3,8 @@
 #include "ast.h"
 #include "symtab.h"
 #include <string.h>
+
+types current_f_type;
 static void idtype(int type, char* out){
 	
 	if (type == 0)
@@ -158,9 +160,12 @@ void scopecheck(ast_node parent, symboltable symtab){
 	}
 	// Unary operations
 	if (parent->node_type == OP_NEG || parent->node_type == OP_INC || parent->node_type == OP_DEC || 
-		parent->node_type == OP_NOT || parent->node_type == READ_STMT || parent->node_type == PRINT_STMT ||
-		parent->node_type == RETURN_STMT)
+		parent->node_type == OP_NOT || parent->node_type == READ_STMT || parent->node_type == PRINT_STMT)
 		scopecheck(parent->left_child, symtab);
+	
+	if (parent->node_type == RETURN_STMT){
+		if (parent->left_child != NULL) scopecheck(parent->left_child, symtab);
+	}
 	
 	if(parent->node_type == ARRAY){
 		// check if the child of parent is in the scope
@@ -202,7 +207,25 @@ void scopecheck(ast_node parent, symboltable symtab){
 
 types typecheck(ast_node parent, symboltable symtab){
 	//printf("begin checking node type %s\n",  token_table[parent->node_type].token);
-
+	if (parent->node_type == RETURN_STMT){
+		if (parent->left_child == NULL) {
+			if (current_f_type == Void)
+				return current_f_type;
+			else{
+				fprintf(stderr, "Error on line %d, empty return in non-Void function\n", parent->line_number);
+				exit(1);
+			}
+		}
+		else {	
+			if (current_f_type != typecheck(parent->left_child, symtab)){
+				fprintf(stderr, "Error on line %d, return type mismatch at line %d\n", parent->line_number);
+				exit(1);
+			}
+		}
+		
+		return current_f_type;
+	}
+	
 	if (parent->node_type == INT_LITERAL || parent->node_type == INT_TYPE)
 		return Int;
 	if (parent->node_type == DOUBLE_LITERAL || parent->node_type == DOUBLE_TYPE)
@@ -224,8 +247,11 @@ types typecheck(ast_node parent, symboltable symtab){
 		parent->node_type == OP_LT || parent->node_type == OP_LEQ || 
 		parent->node_type == OP_GT ||	parent->node_type == OP_GEQ ||
 		parent->node_type == OP_AND || 	parent->node_type == OP_OR || 
-		parent->node_type == OP_NOT)	return Int;
-	
+		parent->node_type == OP_NOT){
+			typecheck(parent->left_child, symtab);
+			if (parent->left_child->right_sibling != NULL) typecheck(parent->left_child->right_sibling, symtab);
+			return Int;
+		}
 	
 	if (parent->node_type == OP_NEG || parent->node_type == OP_INC || 
 		parent->node_type == OP_DEC) return parent->left_child->type;
@@ -375,6 +401,7 @@ void traverse(ast_node parent, symboltable symtab){
 	else if (parent-> node_type == FUNCDEC){
 		ast_node n = parent->left_child->right_sibling;
 		symnode func_name = insert_into_symboltable(symtab, n->value.string, Function, parent->left_child->type, n->line_number);
+		current_f_type = parent->left_child->type;
 		//printf("Entering the scope of function %s\n", n->value.string);
 		enter_scope(symtab);
 		ast_node params = parent->left_child->right_sibling->right_sibling;
@@ -390,7 +417,7 @@ void traverse(ast_node parent, symboltable symtab){
 	else if (parent-> node_type == INT_TYPE || parent->node_type == DOUBLE_TYPE){
 		ast_node n = parent->left_child;
 		int type;
-		char t[15];
+		char t[15];	
 		while (n!=NULL) {
 			//printf("recurse on  %s\n",  token_table[n->node_type].token);
 			ast_node c=n->left_child;
