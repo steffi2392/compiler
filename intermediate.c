@@ -1065,41 +1065,44 @@ static void process_params(ast_node node){
  */  
 static void process_vardec(ast_node node){
   int assign; 
+  ast_node curr = node->left_child; 
+  char * address1; 
+  char * address2; 
 
-  if (node->left_child != NULL){
+  // get the data type                                                                                 
+  if (node->node_type == INT_TYPE)
+    address1 = "int";
+  else if (node->node_type == DOUBLE_TYPE)
+    address1 = "double";
+
+  while (curr != NULL){
     quad vardec_quad = create_quad(vardec);
+    vardec_quad->address1 = address1; 
 
-    // get the data type
-    if (node->node_type == INT_TYPE)
-      vardec_quad->address1 = "int"; 
-    else if (node->node_type == DOUBLE_TYPE)
-      vardec_quad->address1 = "double"; 
-    
-
-    if (node->left_child->node_type == OP_ASSIGN){
-      vardec_quad->address2 = node->left_child->left_child->value.string; 
+    if (curr->node_type == OP_ASSIGN){
+      vardec_quad->address2 = curr->left_child->value.string; 
       assign = 1; 
     }
     
     // process array declaration                                    
-    else if (node->left_child->node_type == ARRAY){
+    else if (curr->node_type == ARRAY){
       int size; 
       // get the size of the array
-      if (node->left_child->left_child->right_sibling == NULL)
+      if (curr->left_child->right_sibling == NULL)
 	size = 1; 
       else{
-	size = node->left_child->left_child->right_sibling->value.int_value; 
+	size = curr->left_child->right_sibling->value.int_value; 
       }
       char buffer[MAX_LEN];
       snprintf(buffer, MAX_LEN, "%d", size);
       vardec_quad->address3 = strdup(buffer);
 
       // get the name of the array     
-      vardec_quad->address2 = process_left(node->left_child);
+      vardec_quad->address2 = process_left(curr);
     
     }
     else {
-      vardec_quad->address2 = node->left_child->value.string; 
+      vardec_quad->address2 = curr->value.string; 
     }
 
     if (vardec_quad->address2 != NULL)
@@ -1107,9 +1110,9 @@ static void process_vardec(ast_node node){
  
     add_quad(node, vardec_quad);
     if (assign){
-      add_quad_list(node, node->left_child->code); 
+      add_quad_list(node, curr->code); 
     }
-
+    curr = curr->right_sibling; 
   }
 }
 
