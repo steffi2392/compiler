@@ -400,6 +400,7 @@ static void process_math(ast_node node){
   // if its a float - process float math
   if (node->type == Double){
     process_float_math(node); 
+    return;
   }
 
   quad new_quad = NULL;   

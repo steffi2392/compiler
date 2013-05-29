@@ -49,13 +49,13 @@ static void write(char * string);
 static quad process_quad(quad q, int * offset_from_fp, int rtrn_type, int *num_params); 
 static void ro_instruction(char *opcode, int r, int s, int t, int override); 
 static void rm_instruction(char *opcode, int r, int d, int s, int override); 
-static void rm_float_instruction(char *opcode, int r, double d,int s, int instruction_override); 
+static void rm_float_instruction(char *opcode, int r, float d,int s, int instruction_override); 
 static void directive(char *type, int loc, int value); 
 static void fill(int loc, int count, int val); 
 static char * process_temp(char * init_temp); 
 static void increment_reg(int reg, int offset); 
 static int stoi(char *string); 
-static double stof(char * string); 
+static float stof(char * string); 
 
 /* globals */ 
 int memory_pointer = 0; 
@@ -332,9 +332,20 @@ static quad process_assignment(quad q, int *offset_from_fp){
   
   if (node != NULL){ // storing into an established variable
     symnode value = lookup_in_symboltable(symtab, q->address2, 1, &val_lev);
+    printf("LOOK AT ME %s , %d, %d \n", q->address2, value->data_type, Int);
     if (value != NULL){
-      reg = (val_lev == 0) ? 4 : 5; 
-      rm_instruction("LD", 0, value->offset, reg, -1); 
+      reg = (val_lev == 0) ? 4 : 5;
+      if (value->data_type == Int) {
+	printf("LOOK AT ME %s , %d, %d \n", q->address2, value->data_type, Int);
+	rm_instruction("LD", 0, value->offset, reg, -1); 
+      }
+	else
+	rm_instruction("LDF", 0, value->offset, reg, -1);
+      
+      if(value->data_type == Int && node->data_type == Double){
+	ro_instruction("CVTIF", 0, 0, 0, 0);
+      }
+      
     }
     else {
       // what type is it? 
@@ -347,16 +358,21 @@ static quad process_assignment(quad q, int *offset_from_fp){
 	rm_float_instruction("LDFC", 0, constant, 0, -1);
       } 
     }
-
+    
+    
     int reg = (level == 0) ? 4 : 5; // either global offset or FP 
-    rm_instruction("ST", 0, node->offset, reg, -1); 
+    
+    if (node->data_type == Int)
+      rm_instruction("ST", 0, node->offset, reg, -1); 
+    else
+      rm_instruction("STF", 0, node->offset, reg, -1);
   }
   // Storing into a temp var 
   else {
     printf("did not find %s\n", target); 
     symnode value_node = lookup_in_symboltable(symtab, q->address2, Var, &level); 
-    char * temp_var = process_temp(target); 
-    node = insert_into_symboltable(symtab, temp_var, Var, value_node->data_type, 0); 
+    //char * temp_var = process_temp(target); 
+    node = insert_into_symboltable(symtab, target, Var, Int, 0); 
     node->offset = *offset_from_fp; 
 
     // make offset_from_fp and increment_reg point to the start of the next word
@@ -366,9 +382,26 @@ static quad process_assignment(quad q, int *offset_from_fp){
     // get the value you're storing
     if (value_node != NULL){
       reg = (val_lev == 0) ? 4 : 5; // what register am I taking offset of? 
-      rm_instruction("LD", 0, value_node->offset, reg, -1); 
+      node->data_type = value_node->data_type;
+
+      if (value_node->data_type == Int)
+        rm_instruction("LD", 0, value_node->offset, reg, -1);
+      else
+        rm_instruction("LDF", 0, value_node->offset, reg, -1);
     }
     else { // it's a constant
+      char* test = strchr(q->address1, '.');
+      if (test == NULL){ // int - no decimal point
+	rm_instruction("LDC", 0, stoi(q->address1),0,-1);
+        rm_instruction("ST", 0, node->offset, 5, -1);
+      }
+      else{
+	node->data_type = Double;
+        rm_instruction("LDFC", 0, stof(q->address1),0,-1);
+        rm_instruction("STF", 0, node->offset, 5, -1);
+      }
+
+	/*
       if (node->data_type == Int){ 
 	int constant = stoi(q->address2); 
 	rm_instruction("LDC", 0, constant, 0, -1);
@@ -377,10 +410,12 @@ static quad process_assignment(quad q, int *offset_from_fp){
 	double constant = stof(q->address2); 
 	rm_float_instruction("LDFC", 0, constant, 0, -1); 
       }
+	   */
     }
-
-    rm_instruction("ST", 0, node->offset, 5, -1); 
   }
+
+    //rm_instruction("ST", 0, node->offset, 5, -1); 
+  
   return q->next; 
 }
 
@@ -589,7 +624,7 @@ static quad process_math(quad q, int *offset_from_fp, char * operation){
 // There might be alignment issues!!
 static quad process_float_math(quad q, int *offset_from_fp, char * operation){
   int level1, level2, result_size, val, level; 
-  double float_val; 
+  float float_val; 
   symnode arg1 = lookup_in_symboltable(symtab, q->address2, Var, &level1); 
   symnode arg2 = lookup_in_symboltable(symtab, q->address3, Var, &level2); 
 
@@ -601,26 +636,39 @@ static quad process_float_math(quad q, int *offset_from_fp, char * operation){
   // insert temp var into symtab and set its offset, if it's not already there
 
   if (result_node == NULL){
-    result_node = insert_into_symboltable(symtab, q->address1, Var, Int, 0);
+    result_node = insert_into_symboltable(symtab, q->address1, Var, Double, 0);
     result_node->offset = *offset_from_fp;
     *offset_from_fp += 8;
   }
 
   // Put the value of arg1 into R0                                                          
   if (arg1 != NULL){
-    int arg1_offset_reg = (level1 == 0) ? 4 : 5; // global or local?                        
-    rm_instruction("LDF", 0, arg1->offset, arg1_offset_reg, -1);
+    int arg1_offset_reg = (level1 == 0) ? 4 : 5; // global or local?
+    if (arg1->data_type == Double)                        
+      rm_instruction("LDF", 0, arg1->offset, arg1_offset_reg, -1);
+    else {
+      rm_instruction("LD", 0, arg1->offset, arg1_offset_reg, -1);
+      ro_instruction("CVTIF", 0, 0,0,0);
+    }
   }
   else { // arg1 is a constant                                                              
-    val = stof(q->address2);
+    float_val = stof(q->address2);
+    printf("NOT FLOATING YET %s\n", q->address2);
+    printf("IM FLOATING %f\n", float_val);
     rm_float_instruction("LDFC", 0, val, 0, -1);
   }
 
   // Put the value of arg2 into R1                                                          
   if (arg2 != NULL){
-    int arg2_offset_reg = (level2 == 0) ? 4 : 5; // global or local?                        
-    rm_instruction("LDF", 1, arg2->offset, arg2_offset_reg, -1);
+    int arg2_offset_reg = (level2 == 0) ? 4 : 5; // global or local?
+    if (arg2->data_type == Double)
+      rm_instruction("LDF", 1, arg2->offset, arg2_offset_reg, -1);
+    else {
+      rm_instruction("LD", 0, arg2->offset, arg2_offset_reg, -1);
+      ro_instruction("CVTIF", 1, 0,0,0);
+    }
   }
+
   else { // arg2 is a literal    
     float_val = stof(q->address2);
     rm_float_instruction("LDFC", 1, float_val, 0, -1);
@@ -1393,10 +1441,10 @@ static void rm_instruction(char *opcode, int r, int d, int s, int instruction_ov
     instruction_pos++; 
 }
 
-static void rm_float_instruction(char *opcode, int r, double d, int s, int instruction_override){
+static void rm_float_instruction(char *opcode, int r, float d, int s, int instruction_override){
   char buffer[MAX_BUFFER]; 
   int instruct_num = (instruction_override == -1) ? instruction_pos : instruction_override; 
-  snprintf(buffer, MAX_BUFFER, "%d, %s %d, %f(%d)\n", instruct_num, opcode, r, d, s); 
+  snprintf(buffer, MAX_BUFFER, "%d: %s %d, %f(%d)\n", instruct_num, opcode, r, d, s); 
   write(buffer); 
 
   if (instruction_override == -1)
@@ -1432,10 +1480,12 @@ static int stoi(char * string){
   return i; 
 }
 
-static double stof(char * string){
-  double i; 
+static float stof(char * string){
+  float i; 
   scanf(string, "%f", &i); 
+  printf("string is %s, float is %f \n", string, i);
   return i; 
+  //return atof(string);
 }
 
 static quad process_print(quad q, int *offset_from_fp){
