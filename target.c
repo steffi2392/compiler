@@ -1224,13 +1224,20 @@ static quad process_logic(quad q, int *offset_from_fp){
     target->offset = *offset_from_fp;
     *offset_from_fp += 8;
     level = 1; 
+    increment_reg(6, 8); 
   }
 
+
   // store true into proper spot (at R6) then increment R6
-  rm_instruction("LDC", 3, 1, 0, -1); 
+  /*  rm_instruction("LDC", 3, 1, 0, -1); 
   rm_instruction("ST", 3, 0, 6, -1); 
   increment_reg(6, 8); 
-
+  */
+  // should really store into target
+  rm_instruction("LDC", 3, 1, 0, -1); 
+  int reg = (level == 0) ? 4 : 5;   
+  rm_instruction("ST", 3, target->offset, reg, -1); 
+  
   //  int reg = (level == 0) ? 4 : 5;
   //rm_instruction("LD", 0, target->offset, reg, -1); 
 
