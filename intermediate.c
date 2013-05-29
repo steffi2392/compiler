@@ -1113,6 +1113,11 @@ static void process_call(ast_node node){
   // 1. push the params onto the stack in reverse order
   ast_node args = node->left_child->right_sibling; 
 
+  // do this first now, for Mehdi
+  quad goto_sub_quad = create_quad(goto_sub);
+  goto_sub_quad->address1 = node->left_child->value.string;
+  add_quad(node, goto_sub_quad);
+
   ast_node curr; 
   for (curr = args->left_child; curr != NULL; curr = curr->right_sibling){
     quad push_quad = create_quad(push); 
@@ -1139,10 +1144,10 @@ static void process_call(ast_node node){
   }
 
   // 2. jump to the function's subroutine
-  quad goto_sub_quad = create_quad(goto_sub); 
+  /* quad goto_sub_quad = create_quad(goto_sub); 
   goto_sub_quad->address1 = node->left_child->value.string; 
   add_quad(node, goto_sub_quad); 
-
+  */
   // 3. get the return value 
   quad get_return = create_quad(get_rtrn); 
   get_return->address1 = new_address(); 
