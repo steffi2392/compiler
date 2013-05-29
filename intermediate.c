@@ -235,7 +235,7 @@ static void implement_node(ast_node node){
 // Gives a new address (ex: t5)
 static char * new_address(){
   char * buffer = malloc(10); 
-  sprintf(buffer, "t%d", num_addresses); 
+  sprintf(buffer, "$t%d", num_addresses); 
   num_addresses += 1; 
 
   return buffer; 
@@ -995,7 +995,19 @@ static void process_function(ast_node node){
   func_dec_node->address2 = name;
   add_quad(node, func_dec_node); 
 
+  // enter scope - hackity hack hack hack
+  quad enter_quad = create_quad(enter);
+  add_quad(node, enter_quad); 
+
   build_code(node, NULL, NULL, NULL, NULL); 
+
+  // exit hacky scope
+  quad leave_quad = create_quad(leave); 
+  add_quad(node, leave_quad); 
+ 
+  // default return
+  quad return_quad = create_quad(rtrn); 
+  add_quad(node, return_quad); 
   
   // leave subroutine (return addr will be in a register)
   quad exit_sub_quad = create_quad(exit_sub);
@@ -1006,6 +1018,7 @@ static void process_function(ast_node node){
     quad halt_quad = create_quad(halt); 
     add_quad(node, halt_quad); 
   }
+
 }
 
 /* pop each value off the stack that corresponds with a parameter 
@@ -1016,20 +1029,9 @@ static void process_params(ast_node node){
   while (param != NULL){
     // add the code for the variable declaration
     param->code->first->opcode = pardec; 
-    add_quad_list(node, param->code); 
-    
-    //    quad pardec_quad = create_quad(pardec); 
-
-    /*
-    quad pop_quad = create_quad(pop); 
-    pop_quad->address1 = new_address();
-    add_quad(node, pop_quad); 
-
-    quad assign = create_quad(assn);
-    assign->address1 = param->left_child->value.string; 
-    assign->address2 = pop_quad->address1; 
-    add_quad(node, assign); 
-    */ 
+    // add_quad_list(node, param->code);
+    //print_code(param->code); 
+    add_quad(node, param->code->first); 
     param = param->right_sibling; 
   }
 }
@@ -1055,18 +1057,23 @@ static void process_vardec(ast_node node){
       vardec_quad->address2 = node->left_child->left_child->value.string; 
       assign = 1; 
     }
-
+    
     // process array declaration                                    
     else if (node->left_child->node_type == ARRAY){
+      int size; 
       // get the size of the array
-      int size = node->left_child->left_child->right_sibling->value.int_value; 
-      printf("size: %d\n", size); 
+      if (node->left_child->left_child->right_sibling == NULL)
+	size = 1; 
+      else{
+	size = node->left_child->left_child->right_sibling->value.int_value; 
+      }
       char buffer[MAX_LEN];
       snprintf(buffer, MAX_LEN, "%d", size);
       vardec_quad->address3 = strdup(buffer);
 
       // get the name of the array     
       vardec_quad->address2 = process_left(node->left_child);
+    
     }
     else {
       vardec_quad->address2 = node->left_child->value.string; 
@@ -1095,7 +1102,24 @@ static void process_call(ast_node node){
   ast_node curr; 
   for (curr = args->left_child; curr != NULL; curr = curr->right_sibling){
     quad push_quad = create_quad(push); 
-    push_quad->address1 = curr->location; 
+    push_quad->address1 = curr->location;
+    
+    // it's a literal!
+    if (push_quad->address1 == NULL){
+      char buffer[MAX_LEN];
+      char *val; 
+      if (curr->type == Int){
+	snprintf(buffer, MAX_LEN, "%d", curr->value.int_value);
+        val = strdup(buffer);
+	push_quad->address1 = val;
+      }
+      else{
+	snprintf(buffer, MAX_LEN, "%f", curr->value.double_value); 
+	val = strdup(buffer); 
+	push_quad->address1 = val; 
+      }
+    }
+ 
     add_quad_to_beginning(node, push_quad); 
     add_quad_list_to_beginning(node, curr->code); 
   }
@@ -1137,33 +1161,10 @@ static void process_array(ast_node node){
  */ 
 static void process_root(ast_node node){
   // 1. generate code for everything before the function declarations
-  ast_node curr; 
+  /*  ast_node curr; 
   for (curr = node->left_child; curr != NULL && curr->node_type != FUNCDEC; curr = curr->right_sibling){
     add_quad_list(node, curr->code); 
   }
-
-  // 2. find the main funcdec and add its code
-  /*  ast_node first_funcdec = curr;
-  ast_node main; 
-  
-  main = first_funcdec; 
-  
-  char * name; 
-  if (main != NULL)
-    name = main->left_child->right_sibling->value.string; 
-  
-  while (main != NULL && strcmp(name, "main") != 0){
-    main = main->right_sibling; 
-    name = main->left_child->right_sibling->value.string; 
-  }
-
-  if (main!= NULL)
-    add_quad_list(node, main->code); 
-
-  // 3. HALT quad
-  quad halt_quad = create_quad(halt); 
-  add_quad(node, halt_quad); 
-  */ 
 
   ast_node first_funcdec = curr; 
   // 4. add the code for all the other functions
@@ -1172,6 +1173,19 @@ static void process_root(ast_node node){
     //if (strcmp(name, "main") != 0){
       add_quad_list(node, curr->code); 
       //}
+      }*/ 
+
+  ast_node curr; 
+  // add all global declarations first
+  for (curr = node->left_child; curr != NULL; curr = curr->right_sibling){
+    if (curr->node_type != FUNCDEC)
+      add_quad_list(node, curr->code); 
+  }
+
+  // now add all the functions
+  for (curr = node->left_child; curr != NULL; curr = curr->right_sibling){
+    if (curr->node_type == FUNCDEC)
+      add_quad_list(node, curr->code); 
   }
 }
 
