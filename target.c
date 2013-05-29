@@ -63,6 +63,7 @@ int instruction_pos = 0;
 int main_loc; 
 int jump_to_main;
 int current_parnum; 
+int rtrn_type = 0;
 symboltable symtab; 
 
 FILE *file; 
@@ -332,7 +333,7 @@ static quad process_assignment(quad q, int *offset_from_fp){
   
   if (node != NULL){ // storing into an established variable
     symnode value = lookup_in_symboltable(symtab, q->address2, 1, &val_lev);
-    printf("LOOK AT ME %s , %d, %d \n", q->address2, value->data_type, Int);
+    //printf("LOOK AT ME %s , %d, %d \n", q->address2, value->data_type, Int);
     if (value != NULL){
       reg = (val_lev == 0) ? 4 : 5;
       if (value->data_type == Int) {
@@ -424,16 +425,17 @@ static quad process_assignment(quad q, int *offset_from_fp){
  * NEED A WAY TO REPORT RETURN TYPE AND PUT IN SYMBOL TABLE 
  */ 
 static quad process_funcdec(quad q){
-  int level, rtrn_type, rtrn_val_size, offset_from_fp, num_params=0; 
-
+  int level, in_main, rtrn_val_size, offset_from_fp, num_params=0; 
+  in_main = 0;
   // write the jump to main command if this is the main function
   if (strcmp(q->address2, "main") == 0 ){
     printf("FOUND MAIN\n"); 
     rm_instruction("LDC", 7, instruction_pos, 0, jump_to_main); 
+    in_main = 1;
   }
   
   // figure out function return type
-  if (strcmp(q->address1, "int") == 0){
+  /*if (strcmp(q->address1, "int") == 0){
     rtrn_type = 0; 
   }
   else if (strcmp(q->address1, "double") == 0){
@@ -442,7 +444,7 @@ static quad process_funcdec(quad q){
   else {
     rtrn_type = 2; 
   }
- 
+  */
   rtrn_val_size = 8; 
 
   symnode node = insert_into_symboltable(symtab, q->address2, Function, rtrn_type, 0); 
@@ -463,7 +465,11 @@ static quad process_funcdec(quad q){
 
   q = q->next; 
   while (q->opcode != exit_sub && q->opcode != halt){
-    q = process_quad(q, &offset_from_fp, rtrn_type, &num_params); 
+    if (q->opcode == rtrn && in_main == 1){
+      ro_instruction("HALT", 0,0,0,0);
+    }
+    
+     q = process_quad(q, &offset_from_fp, rtrn_type, &num_params); 
   }
   
   //  node->num_params = num_params;
@@ -757,6 +763,7 @@ static quad process_call(quad q){
   int level; 
   symnode func_node = lookup_in_symboltable(symtab, q->address1, Function, &level);  
   int offset = func_node->offset; 
+  rtrn_type = func_node->data_type;
   //  current_parnum = func_node->num_params;
   // 2. where the program counter is now is where we eventually want to return to 
   // store value of R7 into R6 such that it goes the next command 
@@ -768,7 +775,7 @@ static quad process_call(quad q){
   // 3. put that into memory
   //LDC (7), ^that number(0); <-- found in step 1;
   rm_instruction("LDC", 7, offset, 0, -1); 
-
+  
   return q->next; 
 }
 
@@ -810,6 +817,7 @@ static quad process_get_rtrn(quad q, int *offset_from_fp, int rtrn_type){
 }  
 	else{
 		symnode target = insert_into_symboltable(symtab, q->address1, Var, rtrn_type, 0);
+		printf("My name is %s, and %d", q->address1, rtrn_type);
 		target->offset = *offset_from_fp;
 		offset_from_fp+=8;
 		if (rtrn_type == Double){
@@ -1491,6 +1499,7 @@ static float stof(char * string){
 static quad process_print(quad q, int *offset_from_fp){
   int level;
   symnode output = lookup_in_symboltable(symtab, q->address1, Var, &level);
+  printf("My name is %s, and %d", q->address1, output->data_type);
   if (output == NULL){
     //char stringBuff[MAX_BUFFER];                                                         
     //strcat(stringBuff, q->address1);                                                     
@@ -1507,13 +1516,13 @@ static quad process_print(quad q, int *offset_from_fp){
     }
   }
   else {
-    if (output->data_type == Int){
-      load_arg(q->address1, 0);
-      ro_instruction("OUT", 0 , 0, 0,0);
+    if (output->data_type == Double){
+      load_float_arg(q->address1, 0);
+      ro_instruction("OUTF", 0 , 0, 0,0);
     }
     else{
-      load_float_arg(q->address1, 0);
-      ro_instruction("OUTF", 0,0,0,0);
+      load_arg(q->address1, 0);
+      ro_instruction("OUT", 0,0,0,0);
     }
   }
   return q->next;
