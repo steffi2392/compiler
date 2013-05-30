@@ -39,7 +39,7 @@ int fib(int x){
 
 void double_math(double num1, double num2){
   double a; 
-  a = num2 / 3.0; 
+  a = num1 + num2 / 3.0; 
   print a; 
 }
 
