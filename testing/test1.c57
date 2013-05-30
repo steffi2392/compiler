@@ -1,0 +1,47 @@
+void pretty_print(int x, int y){
+  int toggle = 0;
+  
+  if ( y > x || y == 0) {
+    print "y must be less than x and must not equal zero";
+  }
+  else{
+    while (y < x){
+      int i; 
+      for (i = 0; i < y; ++i){
+	int j; 
+	for (j = i; j >= 0; --j){
+	  if (toggle == 0){
+	    print "*"; 
+	    toggle = 1; 
+	  }
+	  else {
+	    print "#"; 
+	    toggle = 0; 
+	  }
+	}
+	print " "; 
+      }
+      y = y+1;
+    }
+  }
+}
+
+
+
+
+int fib(int x){
+  if (x == 0 || x == 1){
+    return x; 
+  }
+  else {
+    return fib(x-1) + fib(x - 2); 
+  }
+}
+
+
+int main(){
+  int num1, num2; 
+  pretty_print(8, 1); 
+   
+  print fib(5); 
+}

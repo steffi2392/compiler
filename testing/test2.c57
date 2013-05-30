@@ -1,0 +1,14 @@
+int inner(int c[]){
+    return c[0]; 
+}
+
+int function(int b[]){
+   int x = inner(b); 
+   return x; 
+}
+
+void main(){
+ int a[5]; 
+ a[0] = 7; 
+ print function(a);    
+}
