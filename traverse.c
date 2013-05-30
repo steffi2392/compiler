@@ -274,9 +274,9 @@ types typecheck(ast_node parent, symboltable symtab){
 		types type2 = typecheck(parent->left_child->right_sibling, symtab);
 		if (type1 != type2){
 			char t1[15]; 
-			idtype(type1, t1);
+			datatype(type1, t1);
 			char t2[15]; 
-			idtype(type2, t2);
+			datatype(type2, t2);
 			fprintf(stderr, "Type Error on line %d, assigning %s to %s variable\n", parent->line_number, t2, t1);
 			exit(1);
 			}

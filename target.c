@@ -64,6 +64,7 @@ int main_loc;
 int jump_to_main;
 int current_parnum; 
 int rtrn_type = 2;
+int offset = -32;
 symboltable symtab; 
 
 FILE *file; 
@@ -414,11 +415,15 @@ static quad process_assignment(quad q, int *offset_from_fp){
       reg = (val_lev == 0) ? 4 : 5; // what register am I taking offset of? 
       node->data_type = value_node->data_type;
 
-      if (value_node->data_type == Int)
+      if (value_node->data_type == Int){
         rm_instruction("LD", 0, value_node->offset, reg, -1);
-      else
+		rm_instruction("ST", 0 , node->offset, 5, -1);
+	  }
+	  else{
         rm_instruction("LDF", 0, value_node->offset, reg, -1);
-    }
+		rm_instruction("STF", 0, node->offset, 5, -1);
+		}
+	}
     else { // it's a constant
       char* test = strchr(q->address1, '.');
       if (test == NULL){ // int - no decimal point
@@ -456,6 +461,7 @@ static quad process_assignment(quad q, int *offset_from_fp){
 static quad process_funcdec(quad q){
   int level, in_main, rtrn_val_size, offset_from_fp, num_params=0; 
   in_main = 0;
+  offset = -32;
   // write the jump to main command if this is the main function
   if (strcmp(q->address2, "main") == 0 ){
     printf("FOUND MAIN\n"); 
@@ -488,7 +494,7 @@ int rt;
   rm_instruction("ST", 5, 0, 6, -1); 
   increment_reg(6, 8); 
 
-  // R5 = R6
+  // R5 = R6s
   rm_instruction("LDC", 0, 0, 0, -1); 
   ro_instruction("ADD", 5, 6, 0, 0); 
   offset_from_fp = 0; 
@@ -527,7 +533,7 @@ static quad process_leave(quad q){
  * No code generated. 
  */ 
 static quad process_pardec(quad q, int rtrn_val_size, int *num_params){
-  int offset = -32; // this is maybe wrong? probably right though.  
+  //int offset = -32; // this is maybe wrong? probably right though.  
   int level;
   
   // go through all the pardecs
@@ -763,8 +769,12 @@ static quad process_push(quad q){
         
       reg = (level == 0) ? 4 : 5; // local vs. global 
       int offset = node->offset;
-      rm_instruction("LDA", 0, node->offset, reg, -1);
-      rm_instruction("ST", 0, 0, 6 ,-1);
+	  if (node->dereference == 0)
+		rm_instruction("LDA", 0, node->offset, reg, -1);
+      else 
+		rm_instruction("LD", 0, node->offset, reg, -1);
+
+	  rm_instruction("ST", 0, 0, 6 ,-1);
       increment_reg(6,8);
       current_parnum +=1;
       /*printf("Ar size is %d\n", node->size);
@@ -1186,7 +1196,8 @@ static quad process_not(quad q, int *offset_from_fp){
   symnode target = insert_into_symboltable(symtab, q->address1, Var, Int, 0); 
   target->offset = *offset_from_fp; 
   *offset_from_fp +=8; 
-
+  increment_reg(6,8);	
+  
   // store 1 into target
   rm_instruction("LDC", 1, 1, 0, -1); 
   rm_instruction("ST", 1, target->offset, 5, -1); 
@@ -1198,7 +1209,8 @@ static quad process_not(quad q, int *offset_from_fp){
   // store 0 in target
   rm_instruction("LDC", 1, 0, 0, -1); 
   rm_instruction("ST", 1, target->offset, 5, -1); 
-
+ 
+  
   return q->next; 
 }
 

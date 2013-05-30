@@ -26,6 +26,7 @@ static symnode create_symnode(char *name, id_type nodeType, types data, int line
   node->data_type = data;
   node->parameters = NULL;  
   node->line_number = line_number;
+  node->dereference = 0;
   return node;
 }
 
